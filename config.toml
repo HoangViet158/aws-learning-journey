@@ -1,0 +1,59 @@
+baseURL = "https://hoangviet158.github.io/aws-learning-journey/"
+relativeURLs = true
+canonifyURLs = true
+defaultContentLanguage = "en"
+theme = "hugo-theme-learn"
+
+[outputs]
+home = ["HTML", "RSS", "JSON"]
+
+[params]
+  themeVariant = "workshop"
+  editURL = ""
+  description = "AWS internship report and personal workshop"
+  author = "hoangviet15804@gmail.com"
+  showVisitedLinks = true
+  disableBreadcrumb = false
+  disableNextPrev = false
+
+[Languages]
+[Languages.en]
+title = "AWS Internship Report"
+weight = 1
+languageName = "English"
+label = "English"
+
+[[Languages.en.menu.shortcuts]]
+name = "<i class='fab fa-aws'></i> AWS Study Group - Blog"
+identifier = "AWS Study Group"
+url = "https://awsstudygroup.com"
+weight = 20
+
+[[Languages.en.menu.shortcuts]]
+name = "<i class='fab fa-facebook'></i> AWS Study Group - FB Group"
+identifier = "AWS Study Group FB"
+url = "https://www.facebook.com/groups/awsstudygroupfcj"
+weight = 21
+
+[Languages.vi]
+title = "Báo cáo thực tập AWS"
+weight = 2
+languageName = "Tiếng Việt"
+label = "Tiếng Việt"
+
+[[Languages.vi.menu.shortcuts]]
+name = "<i class='fab fa-aws'></i> AWS Study Group - Blog"
+identifier = "AWS Study Group"
+url = "https://awsstudygroup.com"
+weight = 20
+
+[[Languages.vi.menu.shortcuts]]
+name = "<i class='fab fa-facebook'></i> AWS Study Group - Nhóm FB"
+identifier = "AWS Study Group FB"
+url = "https://www.facebook.com/groups/awsstudygroupfcj"
+weight = 21
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true

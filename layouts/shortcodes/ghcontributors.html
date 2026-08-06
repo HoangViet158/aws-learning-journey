@@ -1,0 +1,32 @@
+<style type="text/css">
+  .ghContributors {
+    display: flex;
+    flex-flow: wrap;
+    align-content: flex-start;
+  }
+
+  .ghContributors > div {
+    width: 50%;
+    display: inline-flex;
+    margin-bottom: 5px;
+  }
+  .ghContributors > div label {
+    padding-left: 4px;
+  }
+  .ghContributors > div span {
+    font-size: x-small;
+    padding-left: 4px;
+  }
+</style>
+<div class="ghContributors">
+  {{ $url := .Get 0 }} {{ with resources.GetRemote $url }} {{ with .Err }} {{
+  errorf "Không thể tải contributors từ %s: %s" $url . }} {{ else }} {{
+  $contributors := . | transform.Unmarshal }} {{ range $contributors }}
+  <div class="ghContributor">
+    <a href="{{ .html_url }}" target="_blank" rel="noopener noreferrer">
+      <img src="{{ .avatar_url }}" alt="{{ .login }}" loading="lazy" />
+      <span>{{ .login }}</span>
+    </a>
+  </div>
+  {{ end }} {{ end }} {{ end }}
+</div>
