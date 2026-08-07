@@ -1,5 +1,5 @@
 ---
-title: "Week 2: Amazon S3 and Content Storage"
+title: "Week 2: Amazon S3, RDS, and Data Security"
 date: 2026-06-29
 weight: 2
 chapter: false
@@ -12,6 +12,7 @@ pre: " <b> 1.2. </b> "
 - Design a recipe-image bucket for FoodieRecipe.
 - Control access with IAM policies, bucket policies, and CORS.
 - Design metadata and object-lifecycle rules for recipe images.
+- Design the PostgreSQL schema, RDS Security Group, and database-secret management.
 
 ## 2. Work plan
 
@@ -23,7 +24,7 @@ pre: " <b> 1.2. </b> "
 | Tuesday | Create a bucket and logical key structure for recipe images | Establish a consistent storage layout |
 | Wednesday | Configure IAM, bucket policy, Block Public Access, and CORS | Prevent unintended public access |
 | Thursday | Upload, download, delete objects, and test pre-signed URLs | Complete the image-management flow |
-| Friday | Test metadata, versioning, lifecycle, and image deletion | Complete image-lifecycle rules |
+| Friday | Design RDS, the data schema, and the database secret | Complete the data and connection-security layer |
 
 ## 3. Work completed
 
@@ -34,6 +35,10 @@ pre: " <b> 1.2. </b> "
 - Enabled versioning and server-side encryption.
 - Added lifecycle handling for older versions to control cost.
 
+**FoodieRecipe S3 bucket after successful creation:**
+
+![FoodieRecipe S3 bucket created successfully](/images/1-Worklog/1.2-Week2/s3-bucket-created.png)
+
 ### 3.2. Permissions and access
 
 - Kept **Block Public Access** enabled for the application image bucket.
@@ -41,9 +46,48 @@ pre: " <b> 1.2. </b> "
 - Configured CORS for the Frontend domain and limited HTTP methods.
 - Generated expiring pre-signed URLs for upload and access.
 
-### 3.3. Image metadata and lifecycle
+**Enable all Block Public Access settings to keep the image bucket private:**
 
-Added metadata such as content type, owner, and recipe identifier, and defined consistent image states in the application. Tested versioning, lifecycle rules, and object deletion to reduce duplicates and abandoned images.
+![Amazon S3 Block Public Access configuration](/images/1-Worklog/1.2-Week2/s3-block-public-access.png)
+
+**CORS configuration for the Frontend:**
+
+```json
+[
+  {
+    "AllowedHeaders": ["Content-Type", "x-amz-*"],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://<frontend-domain>"
+    ],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+Download the configuration file: [cors.json](/files/1-Worklog/1.2-Week2/cors.json). Replace `<frontend-domain>` with the actual CloudFront or Frontend domain before applying it.
+
+**A normal S3 URL is denied because the bucket is not public:**
+
+![A normal S3 URL returns AccessDenied](/images/1-Worklog/1.2-Week2/s3-direct-url-access-denied.png)
+
+**A pre-signed URL grants temporary access to the object:**
+
+![Successful image access through an S3 pre-signed URL](/images/1-Worklog/1.2-Week2/s3-presigned-url-success.png)
+
+### 3.3. Metadata, RDS, and Secrets Manager
+
+Added metadata such as content type, owner, and recipe identifier and standardized image states. Designed PostgreSQL schemas for users, recipes, ingredients, categories, likes, comments, and images; kept RDS private and allowed connections only from the EC2 Security Group. Stored database credentials in Secrets Manager instead of source code.
+
+**The FoodieRecipe Amazon RDS for PostgreSQL database was created and is available:**
+
+![FoodieRecipe Amazon RDS PostgreSQL database created successfully](/images/1-Worklog/1.2-Week2/rds-database-created.png)
+
+**The database secret was stored in AWS Secrets Manager:**
+
+![Database connection secret created in AWS Secrets Manager](/images/1-Worklog/1.2-Week2/secrets-manager-created.png)
 
 ## 4. Knowledge and skills gained
 
@@ -51,6 +95,7 @@ Added metadata such as content type, owner, and recipe identifier, and defined c
 - Understood versioning, encryption, lifecycle rules, and pre-signed URLs.
 - Distinguished IAM policies from bucket policies.
 - Configured CORS, metadata, and object lifecycle rules.
+- Designed private RDS access, relational schemas, and database-secret management with Secrets Manager.
 
 ## 5. Challenges and solutions
 
@@ -65,6 +110,7 @@ Added metadata such as content type, owner, and recipe identifier, and defined c
 - A versioned and encrypted FoodieRecipe image bucket with restricted access.
 - A tested pre-signed URL upload flow.
 - Defined metadata conventions and a cleanup flow for unused images.
+- Defined the PostgreSQL model, RDS Security Group, and database secret.
 
 ## 7. Next-week plan
 

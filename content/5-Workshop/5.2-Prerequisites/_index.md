@@ -53,7 +53,7 @@ foodierecipe/
 └── .gitignore
 ```
 
-Create `api/.env.example` using the project configuration:
+Keep `api/.env.example` limited to key names for local setup; never add real values:
 
 ```dotenv
 # Database
@@ -90,13 +90,24 @@ BEDROCK_MODEL_ID=
 ```
 
 {{% notice warning %}}
-All `.env.example` values are placeholders. Never commit the real `.env`. When `api` runs on EC2, omit `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; the AWS SDK uses `FoodieRecipeBackendRole`. Set `COOKIE_SECURE=true` when serving the API over HTTPS.
+All `.env.example` values are placeholders. Never commit the real `.env`. Production does not create `.env.production`: EC2 uses an IAM role for AWS credentials, Secrets Manager for sensitive values, and Parameter Store for non-sensitive configuration. Set `COOKIE_SECURE=true` when serving the API over HTTPS.
 {{% /notice %}}
 
 - `DATABASE_URL` points to local PostgreSQL on port `5433`.
 - Leave `CLOUDFRONT_*` empty locally; `api` returns an S3 pre-signed GET URL.
 - `CLOUDFRONT_PRIVATE_KEY_BASE64` contains the Base64-encoded private key, not raw PEM text.
 - `RESEND_API_KEY` and `EMAIL_FROM` are required only when email verification is enabled.
+
+`web/.env.example`:
+
+```dotenv
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_APP_NAME=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_CLOUDFRONT_DOMAIN=
+```
+
+Supply `NEXT_PUBLIC_*` variables before building Next.js because their values are embedded in the client bundle.
 
 #### 5. Required permissions
 
@@ -112,7 +123,11 @@ Do not grant `AdministratorAccess` to the application. In section 5.3.1, you wil
 | -------- | -------------- |
 | Image bucket | `my-foodie-ai-images` or an equivalent globally unique name |
 | EC2 role | `FoodieRecipeBackendRole` |
-| Secret | `foodierecipe/database` |
-| Log group | `/foodierecipe/api` |
+| EC2 Security Group | `FoodieRecipeEc2Sg` |
+| RDS Security Group | `FoodieRecipeRdsSg` |
+| Database secret | `prod/foodie-recipe/db` |
+| Application secret | `prod/foodie-recipe/app` |
+| Log group | `foodie-recipe-log` |
+| Production domain | `myapps.io.vn` |
 
 After completing the checks, continue to [Build the core infrastructure](../5.3-core-infrastructure/).

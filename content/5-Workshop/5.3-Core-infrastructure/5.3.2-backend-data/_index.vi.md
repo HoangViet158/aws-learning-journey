@@ -6,102 +6,154 @@ chapter: false
 pre: " <b> 5.3.2. </b> "
 ---
 
-#### 1. Tạo Amazon RDS
+#### 1. Kiến trúc mạng VPC
 
-1. Mở **Amazon RDS → Create database**.
-2. Chọn PostgreSQL hoặc engine mà dự án đang sử dụng.
-3. Chọn template phù hợp môi trường workshop.
-4. Đặt database name `foodierecipe`.
-5. Chọn **Public access: No**.
-6. Security Group của RDS chỉ cho phép cổng database từ Security Group của EC2.
-7. Bật encryption và automated backup theo nhu cầu.
+Mở **Amazon VPC → Your VPCs → Resource map** để kiểm tra VPC, subnet, route table và Internet Gateway.
 
-{{% notice warning %}}
-Không mở cổng database cho `0.0.0.0/0`. Không ghi password RDS trực tiếp vào `.env` được commit lên Git.
+![Resource map của VPC triển khai FoodieRecipe](/images/5-Workshop/5.3-Core-infrastructure/5.3.2-backend-data/vpc-resource-map.png)
+
+- EC2/Nginx nằm trong public subnet và dùng Elastic IP.
+- RDS dùng DB subnet group trải trên ít nhất hai Availability Zone.
+- RDS đặt **Public access: No**.
+- `FoodieRecipeRdsSg` chỉ nhận PostgreSQL `5432` từ `FoodieRecipeEc2Sg`.
+- Port `3000` và `3001` chỉ bind loopback; người dùng truy cập qua Nginx `80/443`.
+
+{{% notice note %}}
+Resource map chỉ thể hiện quan hệ tài nguyên. Hãy kiểm tra route table và Security Group để xác nhận ranh giới public/private.
 {{% /notice %}}
 
-#### 2. Chuẩn bị bảng ảnh
+#### 2. Tạo Amazon RDS for PostgreSQL
 
-Schema tối thiểu:
+1. Tạo DB subnet group từ các subnet đã chọn.
+2. Chọn PostgreSQL, DB identifier `database-foodie-recipe` và cấu hình phù hợp workshop.
+3. Bật encryption, automated backup và **Public access: No**.
+4. Gắn `FoodieRecipeRdsSg`.
+5. Lưu connection string trong secret `prod/foodie-recipe/db`.
 
-```sql
-CREATE TABLE recipe_images (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  recipe_id UUID,
-  object_key VARCHAR(512) NOT NULL UNIQUE,
-  status VARCHAR(20) NOT NULL,
-  error_code VARCHAR(80),
-  ai_result JSONB,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-```
+![RDS PostgreSQL FoodieRecipe ở trạng thái Available](/images/1-Worklog/1.2-Week2/rds-database-created.png)
 
-Giá trị `status` chỉ gồm `pending`, `processing`, `completed`, `failed`.
+Không mở `5432` cho `0.0.0.0/0` và không đưa password vào Git.
 
-#### 3. Chuẩn bị EC2
+#### 3. Chạy migration Prisma
 
-1. Tạo EC2 Linux phù hợp môi trường thử nghiệm.
-2. Gắn IAM role `FoodieRecipeBackendRole`.
-3. Security Group chỉ mở cổng quản trị từ nguồn tin cậy và cổng API qua Nginx.
-4. Cài Docker, Docker Compose plugin, Nginx và CloudWatch Agent.
-
-#### 4. Chạy NestJS bằng Docker
-
-Dockerfile tham khảo:
-
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:20-alpine
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/package*.json ./
-RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-USER node
-CMD ["node", "dist/main.js"]
-```
-
-Khởi chạy và kiểm tra:
+Schema hiện có các bảng chính: `users`, `recipes`, `recipe_ingredients`, `recipe_steps`, `recipe_images`, `recipe_likes`, `comments` và `ai_generation_history`. Trạng thái lịch sử AI gồm `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED`.
 
 ```bash
 cd api
-docker build -t foodierecipe-backend .
-docker run -d --name foodierecipe-api --restart unless-stopped -p 3001:3001 foodierecipe-backend
-curl http://localhost:3001/health
+pnpm prisma generate
+pnpm prisma migrate deploy
+pnpm prisma studio
 ```
 
-#### 5. Cấu hình Nginx
+![Các bảng sau khi Prisma migration](/images/1-Worklog/1.3-Week3/prisma-migration-result.png)
+
+`RecipeImage` lưu URL, loại ảnh và thứ tự hiển thị; trạng thái AI thuộc `AIGenerationHistory`, không thuộc bảng ảnh.
+
+#### 4. Chuẩn bị EC2
+
+1. Tạo Linux EC2 trong public subnet và gắn Elastic IP.
+2. Gắn IAM Role của Backend cùng `FoodieRecipeEc2Sg`.
+3. Chỉ mở SSH `22` từ IP quản trị; mở `80/443` cho người dùng.
+
+![EC2 FoodieRecipe đang chạy](/images/1-Worklog/1.7-Week7/ec2-instance-running.png)
+
+![IAM Role và Security Group gắn với EC2](/images/1-Worklog/1.7-Week7/ec2-iam-role.png)
+
+```bash
+aws sts get-caller-identity
+sudo dnf update -y
+sudo dnf install -y git docker nginx jq
+sudo systemctl enable --now docker nginx
+sudo usermod -aG docker ec2-user
+```
+
+Đăng xuất rồi SSH lại để quyền Docker có hiệu lực.
+
+#### 5. Build và chạy NestJS
+
+Dockerfile của `api` dùng Node.js 22, pnpm, Prisma Client và NestJS build. Entrypoint chạy `prisma migrate deploy` trước `node dist/main.js`.
+
+```bash
+git clone https://github.com/<owner>/<repository>.git foodierecipe
+cd foodierecipe/api
+docker build -t foodierecipe-api:production .
+```
+
+Không tạo `.env.production`. Script deploy lấy secret bằng temporary credential của EC2 Role và truyền vào container:
+
+```bash
+REGION=ap-southeast-1
+
+DB_SECRET=$(aws secretsmanager get-secret-value \
+  --region "$REGION" \
+  --secret-id prod/foodie-recipe/db \
+  --query SecretString --output text)
+
+APP_SECRET=$(aws secretsmanager get-secret-value \
+  --region "$REGION" \
+  --secret-id prod/foodie-recipe/app \
+  --query SecretString --output text)
+
+DATABASE_URL=$(jq -r '.DATABASE_URL' <<< "$DB_SECRET")
+JWT_SECRET=$(jq -r '.JWT_SECRET' <<< "$APP_SECRET")
+
+docker run -d \
+  --name foodierecipe-api \
+  --restart unless-stopped \
+  -p 127.0.0.1:3001:3001 \
+  -e "DATABASE_URL=$DATABASE_URL" \
+  -e PORT=3001 \
+  -e NODE_ENV=production \
+  -e COOKIE_SECURE=true \
+  -e "JWT_SECRET=$JWT_SECRET" \
+  -e AWS_REGION="$REGION" \
+  -e AWS_BUCKET_NAME=my-foodie-ai-images \
+  -e BEDROCK_MODEL_ID='<model-id>' \
+  foodierecipe-api:production
+
+unset DB_SECRET APP_SECRET DATABASE_URL JWT_SECRET
+```
+
+![PostgreSQL container hoạt động trong môi trường local](/images/1-Worklog/1.3-Week3/docker-postgres-running.png)
+
+#### 6. Cấu hình Nginx
 
 ```nginx
 server {
     listen 80;
+    server_name myapps.io.vn;
 
     location /api/ {
-        proxy_pass http://127.0.0.1:3001/;
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        client_max_body_size 2m;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-Reload Nginx và gọi `/api/health` để xác nhận reverse proxy hoạt động.
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+curl http://127.0.0.1:3001/api
+curl -I https://myapps.io.vn
+```
 
-#### 6. Đọc secret trong NestJS
+![Health endpoint trả về Hello World](/images/1-Worklog/1.3-Week3/api-hello-world.png)
 
-Backend dùng EC2 IAM role gọi Secrets Manager khi khởi động. Không cần lưu access key tĩnh trên máy.
+#### 7. Kiểm tra API và database
 
-Kết quả mong đợi:
+Swagger giúp kiểm tra contract của API:
 
-- Container NestJS hoạt động sau Nginx.
-- NestJS lấy được database secret.
-- Kết nối RDS thành công.
-- Endpoint health không in thông tin nhạy cảm.
+![Swagger FoodieRecipe API](/images/1-Worklog/1.3-Week3/swagger-overview.png)
+
+![Đăng nhập thành công qua Swagger](/images/1-Worklog/1.3-Week3/swagger-login-success.png)
+
+Xác nhận migration hoàn tất, đăng ký/đăng nhập hoạt động, API tạo công thức ghi được RDS và container tự khởi động lại sau reboot EC2.

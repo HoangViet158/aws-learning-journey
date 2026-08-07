@@ -1,94 +1,95 @@
 ---
-title: "Detect and Moderate with Rekognition"
+title: "Detect ingredients with Amazon Rekognition"
 date: 2026-06-22
 weight: 2
 chapter: false
 pre: " <b> 5.4.2. </b> "
 ---
 
-#### 1. Install the package
+#### 1. Grant Rekognition access
 
-```bash
-npm install @aws-sdk/client-rekognition
-```
-
-Rekognition reads the image directly from S3 by bucket/key, so the EC2 role needs Rekognition permissions and read access to `uploads/`.
-
-#### 2. Create the Rekognition service
-
-```ts
-import {
-  DetectLabelsCommand,
-  DetectModerationLabelsCommand,
-  RekognitionClient,
-} from '@aws-sdk/client-rekognition';
-
-const client = new RekognitionClient({ region: process.env.AWS_REGION });
-
-export async function analyzeImage(key: string) {
-  const image = { S3Object: { Bucket: process.env.AWS_BUCKET_NAME, Name: key } };
-
-  const moderation = await client.send(new DetectModerationLabelsCommand({
-    Image: image,
-    MinConfidence: 80,
-  }));
-
-  const labels = await client.send(new DetectLabelsCommand({
-    Image: image,
-    MaxLabels: 20,
-    MinConfidence: 70,
-  }));
-
-  return {
-    moderation: moderation.ModerationLabels ?? [],
-    labels: labels.Labels ?? [],
-  };
-}
-```
-
-{{% notice note %}}
-The example confidence thresholds are starting values, not absolute standards. Evaluate them with a representative FoodieRecipe image set.
-{{% /notice %}}
-
-#### 3. Apply moderation rules
-
-1. Run `DetectModerationLabels` first.
-2. If a blocked label exceeds the threshold, set `failed` and `error_code=moderation_rejected`.
-3. If a result needs review, still use `failed` with `error_code=moderation_review`.
-4. If accepted, keep the image in `processing`.
-
-Do not create additional `rejected` or `review_required` states.
-
-#### 4. Normalize labels
-
-Store only the necessary data:
+The EC2 IAM role needs the minimum action:
 
 ```json
 {
-  "labels": [
-    { "name": "Food", "confidence": 99.1 },
-    { "name": "Soup", "confidence": 94.3 }
-  ],
-  "moderation": []
+  "Effect": "Allow",
+  "Action": "rekognition:DetectLabels",
+  "Resource": "*"
 }
 ```
 
-Select top food/ingredient labels as Bedrock context. Never treat labels as perfectly accurate facts.
+The role also needs `s3:GetObject` for `arn:aws:s3:::my-foodie-ai-images/ai-images/*` because Rekognition reads the object by bucket and key.
 
-#### 5. Handle errors
+#### 2. Invoke `DetectLabels`
 
-| Error | Handling |
-| ----- | -------- |
-| Object does not exist | `failed` + `s3_object_missing` |
-| Unsupported format | `failed` + `unsupported_image` |
-| Throttling/timeout | Limited retries with exponential backoff |
-| No useful labels | Continue to Bedrock with the image and empty context |
+In `api/src/common/aws/rekognition.service.ts`:
 
-#### 6. Test
+```ts
+async detectLabels(imageKey: string) {
+  return this.client.send(new DetectLabelsCommand({
+    Image: {
+      S3Object: {
+        Bucket: this.configService.getOrThrow('AWS_BUCKET_NAME'),
+        Name: imageKey,
+      },
+    },
+    MaxLabels: 30,
+    MinConfidence: 50,
+  }));
+}
+```
 
-- A valid food image returns confidence-scored labels.
-- An inappropriate image becomes `failed`.
-- Logs exclude sensitive or unnecessary full responses.
-- Only one job runs per image ID at a time.
+`MinConfidence: 50` limits results returned by Rekognition; the Backend applies a stricter threshold when selecting ingredients.
 
-Reference: [Amazon Rekognition Image API](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/rekognition/).
+#### 3. Normalize ingredient labels
+
+`IngredientService` performs four steps:
+
+1. Keep labels at `80%` confidence or higher.
+2. Remove generic labels such as `Food`, `Meal`, `Dish`, `Plate`, `Fruit`, and `Vegetable`.
+3. Normalize equivalent names, for example `Scallion` to `Green Onion`.
+4. Deduplicate and sort by descending confidence.
+
+```ts
+labels
+  .filter((label) => (label.Confidence ?? 0) >= 80)
+  .filter((label) => !ignoreLabels.has(label.Name!))
+  .map((label) => ({
+    name: normalize(label.Name!),
+    confidence: Number((label.Confidence ?? 0).toFixed(2)),
+  }))
+  .filter((item, index, self) =>
+    self.findIndex((value) => value.name === item.name) === index,
+  )
+  .sort((a, b) => b.confidence - a.confidence);
+```
+
+#### 4. Actual result
+
+The interface displays labels and confidence values returned by Rekognition:
+
+![Labels detected by Rekognition](/images/1-Worklog/1.5-Week5/rekognition-labels-result.png)
+
+Labels are stored with generation history so the AI input can be traced:
+
+![Rekognition labels stored in generation history](/images/1-Worklog/1.5-Week5/rekognition-labels-history.png)
+
+#### 5. Errors and current limitations
+
+| Case | Handling |
+| ---- | -------- |
+| The S3 object does not exist | Log contextual information and return a normalized error |
+| Region or bucket is incorrect | Check `AWS_REGION`, `AWS_BUCKET_NAME`, and the IAM role |
+| No suitable labels are found | Skip Bedrock or ask the user for a clearer image |
+| Rekognition times out or throttles | Apply bounded retries with backoff |
+
+{{% notice warning %}}
+The current source does not invoke `DetectModerationLabels`. Do not claim that an image was moderated or rejected by Rekognition until the service, policy, and tests are implemented.
+{{% /notice %}}
+
+#### 6. Verify
+
+1. Use a clear ingredient image and confirm confidence-bearing labels.
+2. Use a non-food image and confirm that false ingredients are not generated.
+3. Use a missing object key to verify error logging.
+4. Confirm AI history stores the model, labels, status, and recipe ID.

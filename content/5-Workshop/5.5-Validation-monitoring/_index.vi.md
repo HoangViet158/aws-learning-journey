@@ -1,93 +1,105 @@
 ---
-title: "Kiểm thử, bảo mật và giám sát"
+title: "Kiểm thử và giám sát"
 date: 2026-06-22
 weight: 5
 chapter: false
 pre: " <b> 5.5. </b> "
 ---
 
-Phần này xác nhận workflow hoạt động đúng, lỗi có thể truy vết và tài nguyên không cấp quyền rộng hơn cần thiết.
+#### 1. Kiểm tra môi trường production
 
-#### 1. Kiểm thử end-to-end
+Mở `https://myapps.io.vn` và xác nhận domain dùng HTTPS, Next.js tải được dữ liệu từ `/api`, cookie xác thực hoạt động và ảnh private hiển thị qua URL có thời hạn.
 
-| Trường hợp | Kết quả mong đợi |
-| ---------- | ---------------- |
-| Upload JPEG/PNG/WebP hợp lệ | `pending → processing → completed` |
-| File sai định dạng/quá dung lượng | Bị từ chối trước khi tạo URL hoặc chuyển `failed` |
-| Pre-signed URL hết hạn | S3 từ chối; người dùng yêu cầu URL mới |
-| Ảnh vi phạm moderation | `failed` với mã lý do kiểm duyệt |
-| Rekognition timeout | Retry giới hạn, không tạo job trùng |
-| Bedrock trả JSON sai | Validate thất bại, retry/fallback có kiểm soát |
-| Copy từ `uploads/` sang `delivery/` lỗi | Không chuyển sang `completed` |
-| Truy cập direct S3 URL | 403 |
-| Truy cập CloudFront URL | 200 và cache hoạt động |
+![FoodieRecipe hoạt động trên domain production](/images/1-Worklog/1.8-Week8/production-custom-domain.png)
 
-Thực hiện mỗi test bằng image ID riêng và ghi lại request ID, latency, trạng thái cuối.
-
-#### 2. Ghi log có cấu trúc
-
-NestJS nên ghi JSON log với các trường:
-
-```json
-{
-  "event": "image.processing.completed",
-  "imageId": "uuid",
-  "userId": "masked-or-internal-id",
-  "stage": "bedrock",
-  "durationMs": 820,
-  "status": "completed"
-}
+```bash
+curl -I https://myapps.io.vn
+curl https://myapps.io.vn/api
+docker ps
+docker logs --tail 100 foodierecipe-web
+docker logs --tail 100 foodierecipe-api
 ```
 
-Không log password, token, AWS credential, raw secret, pre-signed URL đầy đủ hoặc toàn bộ ảnh/base64.
+#### 2. Ma trận kiểm thử end-to-end
 
-#### 3. Cấu hình CloudWatch Logs
+| Kịch bản | Kết quả mong đợi |
+| -------- | ---------------- |
+| Đăng ký và đăng nhập hợp lệ | Nhận session/token và truy cập trang thành viên |
+| Sai mật khẩu hoặc token hết hạn | API trả `401`, không lộ thông tin nhạy cảm |
+| Tạo/sửa/xóa công thức | RDS cập nhật đúng người sở hữu và transaction |
+| Thích rồi bỏ thích | `likeCount` và trạng thái UI đồng bộ |
+| Tạo/sửa/xóa bình luận | Kiểm tra quyền người viết và cây bình luận |
+| Upload ảnh nguyên liệu hợp lệ | S3 có JPEG tối ưu dưới `ai-images/` |
+| Rekognition không tìm thấy nguyên liệu | Không gọi Bedrock hoặc trả hướng dẫn chọn ảnh khác |
+| Bedrock trả JSON hợp lệ | Recipe và AI history được lưu `SUCCESS` |
+| Bedrock trả output lỗi | Transaction không tạo recipe dở dang, history `FAILED` |
+| CloudFront signed URL hợp lệ/hết hạn | `200` trước hạn và bị từ chối sau hạn |
+| Truy cập URL S3 trực tiếp | `403 AccessDenied` |
+| Reboot EC2 | Docker và Nginx tự khởi động, health check phục hồi |
 
-1. Tạo log group `/foodierecipe/api`.
-2. Đặt retention phù hợp môi trường workshop.
-3. Cấu hình CloudWatch Agent hoặc Docker logging để chuyển log NestJS/Nginx.
-4. Xác nhận EC2 role có quyền tạo log stream và ghi log event.
-5. Tìm log theo `imageId` để theo dõi xuyên suốt workflow.
+Giao diện khám phá công thức cho phép kiểm tra tìm kiếm, filter, lượt thích và danh sách dữ liệu từ API:
 
-Ví dụ Logs Insights:
+![Danh sách công thức và trạng thái lượt thích](/images/1-Worklog/1.4-Week4/recipe-discovery-page.png)
+
+#### 3. Log có cấu trúc
+
+Luồng AI hiện ghi các mốc chính:
 
 ```text
-fields @timestamp, event, imageId, stage, durationMs, status
-| filter imageId = "<image-id>"
-| sort @timestamp asc
+[AI] analyze-image started for user <id>
+[AI] image uploaded to S3: ai-images/<file>.jpg
+[AI] Rekognition returned <count> labels
+[AI] extracted <count> ingredients
+[AI] calling Bedrock model <model-id>
+[AI] recipe transaction committed with id <recipe-id>
 ```
 
-#### 4. Metrics và cảnh báo
+Nên bổ sung `requestId`, `userId`, `historyId`, `durationMs` và `errorCode` dưới dạng JSON để tìm kiếm bằng CloudWatch Logs Insights. Không log password, JWT, AWS credential, secret, ảnh/base64 hoặc signed URL đầy đủ.
 
-Theo dõi tối thiểu:
+#### 4. CloudWatch Logs
 
-- Số ảnh `completed` và `failed`.
-- Thời gian upload, Rekognition, Bedrock và copy S3.
-- Tỷ lệ lỗi theo `error_code`.
-- Số lần retry và Bedrock invocation.
-- CloudFront requests, error rate và cache hit ratio.
-- EC2 CPU/disk và RDS connections/storage.
+CloudWatch chứa `foodie-recipe-log` cho ứng dụng và `RDSOSMetrics` cho RDS Enhanced Monitoring:
 
-Tạo alarm cho tỷ lệ `failed` tăng cao, EC2 thiếu tài nguyên, CloudFront 5xx và Budget vượt ngưỡng.
+![CloudWatch Log Groups của FoodieRecipe](/images/1-Worklog/1.8-Week8/cloudwatch-log-groups.png)
 
-#### 5. Rà soát bảo mật
+CloudWatch Agent trên EC2 cần IAM permission `logs:CreateLogStream`, `logs:DescribeLogStreams` và `logs:PutLogEvents`. Đặt retention phù hợp, ví dụ một tuần cho log workshop và một tháng cho RDS metrics.
 
-1. S3 image bucket vẫn bật Block Public Access.
-2. CloudFront chỉ được đọc prefix `delivery/` qua OAC.
-3. Prefix `uploads/` chỉ nhận PUT đã ký từ origin CORS được phép.
-4. EC2 dùng IAM role, không lưu static access key.
-5. RDS không public và chỉ nhận kết nối từ Backend.
-6. Secret không nằm trong Git, Docker image hoặc log.
-7. IAM policy không dùng `s3:*`, `rekognition:*` hoặc `bedrock:*` nếu không cần.
-8. API kiểm tra ownership trước confirm/delete ảnh.
+Ví dụ truy vấn Logs Insights:
 
-#### 6. Tiêu chí hoàn thành Workshop
+```text
+fields @timestamp, @message
+| filter @message like /\[AI\]/
+| sort @timestamp desc
+| limit 50
+```
 
-- Một ảnh hợp lệ đi hết luồng và hiển thị bằng CloudFront URL.
-- AI suggestion đúng schema và có thể chỉnh sửa.
-- Một ảnh bị kiểm duyệt chuyển `failed` với lý do.
-- Direct S3 URL không truy cập được.
-- Có thể truy vết một image ID trong CloudWatch Logs.
-- Không còn quyền public hoặc credential hard-code.
+#### 5. Metrics và cảnh báo
 
-Sau khi kiểm tra xong, chuyển sang [Dọn dẹp tài nguyên](../5.6-cleanup/).
+Theo dõi:
+
+- EC2 CPU, disk và status check.
+- RDS CPU, connections, free storage và latency.
+- API 4xx/5xx từ Nginx hoặc application log.
+- Số lần gọi Rekognition/Bedrock thành công và thất bại.
+- CloudFront requests, error rate và cache hit rate.
+
+Tạo alarm cho EC2 status check failed, API 5xx tăng, RDS thiếu storage và Budget vượt ngưỡng. Gửi cảnh báo qua SNS topic có email subscription đã xác nhận.
+
+#### 6. Rà soát bảo mật
+
+1. S3 bật Block Public Access và không dùng ACL public.
+2. CloudFront đọc S3 qua OAC; URL người dùng có thời hạn.
+3. EC2 dùng IAM Role, không dùng static access key.
+4. Secrets Manager/Parameter Store thay cho `.env.production` trên máy chủ.
+5. RDS không public và chỉ nhận kết nối từ EC2 Security Group.
+6. Port `3000/3001/5432` không mở trực tiếp ra Internet.
+7. Domain production dùng HTTPS và `COOKIE_SECURE=true`.
+
+#### 7. Tiêu chí hoàn thành
+
+- Domain production, Frontend, API và RDS hoạt động ổn định.
+- Đăng nhập, công thức, thích và bình luận vượt qua test chính.
+- Một ảnh nguyên liệu tạo được recipe và AI history `SUCCESS`.
+- Trường hợp lỗi tạo history `FAILED` và không để dữ liệu dở dang.
+- URL S3 trực tiếp bị chặn; signed URL hoạt động đúng hạn.
+- CloudWatch nhận log mới và container phục hồi sau reboot.

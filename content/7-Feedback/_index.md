@@ -30,9 +30,9 @@ Team Admins also provided timely support with learning materials, schedules, eve
 
 I believe the FCAJ internship content was highly relevant to my Information Technology studies. Foundational knowledge of web development, computer networks, databases, and systems analysis was directly applied while building FoodieRecipe.
 
-The project uses **Next.js** in the `web` directory for the Frontend and **NestJS** in `api` for the Backend. It uses **Amazon RDS for PostgreSQL** for relational data, **Amazon S3** for image storage, **Amazon Rekognition** for image recognition and moderation, **Amazon Bedrock** for recipe-content suggestions, and **Amazon CloudFront** for faster image delivery.
+The project uses **Next.js** in the `web` directory for a Frontend supporting recipe management, likes, and comments, and **NestJS** in `api` for the Backend. It uses **Amazon RDS for PostgreSQL** for relational data, **Amazon S3** for image storage, **Amazon Rekognition** for image recognition and moderation, **Amazon Bedrock** for recipe-content suggestions, and **Amazon CloudFront** for faster image delivery.
 
-The complete product architecture also proposes Amazon EC2, Docker, Nginx, AWS Secrets Manager, IAM, and Amazon CloudWatch for operation, security, and monitoring. My individual scope focused on the `web` and `api` integration and the S3–Rekognition–Bedrock–CloudFront image workflow; I was not directly responsible for deploying the Backend to EC2.
+I deployed the complete product architecture with Amazon EC2, Docker, Nginx, Amazon RDS, AWS Secrets Manager, IAM, and Amazon CloudWatch for operation, security, and monitoring. The work covered `web` and `api` development, Backend deployment to EC2, RDS connectivity, Frontend publishing through S3/CloudFront, and the complete S3–Rekognition–Bedrock–CloudFront image workflow.
 
 Combining programming knowledge with Cloud and Generative AI helped me better understand the relationship between university subjects and the requirements of a real software product. These practical skills complemented areas that I had not previously had the opportunity to study in depth.
 

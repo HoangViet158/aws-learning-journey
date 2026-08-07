@@ -8,46 +8,42 @@ pre: " <b> 5.1. </b> "
 
 #### Giới thiệu FoodieRecipe
 
-FoodieRecipe là ứng dụng chia sẻ công thức sử dụng **Next.js** cho Frontend và **NestJS** cho Backend. Người dùng có thể tạo tài khoản, đăng và quản lý công thức, khai báo nguyên liệu/danh mục, tìm kiếm công thức và upload ảnh món ăn.
+FoodieRecipe là nền tảng chia sẻ công thức nấu ăn có chức năng tài khoản, tìm kiếm, quản lý công thức, thích, bình luận và tạo công thức bằng AI từ ảnh nguyên liệu.
 
-AI hỗ trợ người dùng bằng cách:
-
-- Kiểm duyệt ảnh và nhận diện món ăn/nguyên liệu với Amazon Rekognition.
-- Gợi ý tên món, mô tả, nguyên liệu và tag với Amazon Bedrock.
-- Yêu cầu người dùng kiểm tra và chỉnh sửa trước khi lưu.
+![FoodieRecipe hoạt động trên domain production](/images/1-Worklog/1.8-Week8/production-custom-domain.png)
 
 #### Kiến trúc Workshop
 
-![Kiến trúc FoodieRecipe](/images/2-Proposal/foodie-recipe-architecture.png)
+![Kiến trúc FoodieRecipe trên AWS](/images/2-Proposal/foodie-recipe-architecture.png)
 
-| Thành phần | Vai trò |
-| ---------- | ------- |
-| Next.js | Giao diện upload, preview, progress và kết quả AI |
-| NestJS | API, validation, trạng thái ảnh và điều phối AWS services |
-| S3 image bucket | Prefix `uploads/` lưu ảnh gốc; `delivery/` lưu ảnh hoàn tất |
-| Rekognition | Nhận diện label và kiểm duyệt nội dung |
-| Bedrock | Phân tích ngữ cảnh và gợi ý nội dung công thức |
-| CloudFront | Cache và phân phối ảnh từ private S3 origin |
-| EC2, Docker, Nginx | Môi trường chạy Backend trong kiến trúc sản phẩm |
-| RDS | Lưu dữ liệu nghiệp vụ và trạng thái ảnh |
-| Secrets Manager, IAM | Quản lý bí mật và quyền truy cập |
-| CloudWatch | Thu thập log, metrics và cảnh báo |
+| Thành phần | Trách nhiệm |
+| ---------- | ----------- |
+| Next.js `web` | Giao diện, xác thực, tìm kiếm, thích, bình luận và gửi ảnh AI |
+| NestJS `api` | API nghiệp vụ, upload ảnh, gọi dịch vụ AWS và lưu dữ liệu |
+| EC2, Docker, Nginx | Chạy hai container và phục vụ domain production |
+| Amazon RDS PostgreSQL | Lưu người dùng, công thức, nguyên liệu, tương tác và lịch sử AI |
+| Amazon S3 | Lưu ảnh đã được Backend resize và chuyển thành JPEG |
+| Amazon Rekognition | Phát hiện label trong ảnh bằng `DetectLabels` |
+| Amazon Bedrock | Sinh JSON công thức từ prompt chứa nguyên liệu |
+| Amazon CloudFront | Trả signed URL có thời hạn cho ảnh private |
+| Secrets Manager, IAM | Quản lý bí mật và temporary credential |
+| CloudWatch | Thu thập log ứng dụng và RDS metrics |
 
-#### Luồng end-to-end
+#### Luồng end-to-end thực tế
 
-1. Next.js yêu cầu NestJS tạo image record và pre-signed URL.
-2. Trình duyệt upload ảnh trực tiếp vào prefix `uploads/` của S3 image bucket.
-3. NestJS xác minh object và đặt trạng thái `processing`.
-4. Rekognition nhận diện label và kiểm duyệt ảnh.
-5. Bedrock tạo gợi ý công thức có cấu trúc.
-6. Ảnh hợp lệ được chuyển sang prefix `delivery/` trong cùng bucket.
-7. Trạng thái chuyển thành `completed`; Next.js hiển thị ảnh qua CloudFront.
-8. Khi xảy ra lỗi, trạng thái là `failed` kèm mã lỗi để retry hoặc kiểm tra.
+1. Người dùng đăng nhập và chọn ảnh tại trang **Tủ lạnh AI**.
+2. Next.js gửi `multipart/form-data` đến `POST /api/ai/analyze-image`.
+3. NestJS dùng `sharp` resize ảnh tối đa 1024 px, nén JPEG chất lượng 85 và upload vào `ai-images/` trên S3.
+4. Rekognition đọc object S3, trả tối đa 30 label với ngưỡng dịch vụ 50%.
+5. Backend chỉ giữ nhãn nguyên liệu từ 80%, loại nhãn chung, chuẩn hóa và loại trùng.
+6. Bedrock nhận prompt dạng text và trả JSON công thức.
+7. NestJS validate kết quả, lưu recipe, ingredients, steps và generation history trong RDS.
+8. Khi đọc ảnh, Backend trả CloudFront signed URL; local fallback dùng S3 pre-signed GET URL.
 
 #### Mục tiêu học tập
 
-- Hiểu cách tách upload khỏi Backend bằng pre-signed URL.
-- Thiết kế workflow AI có validation và fallback.
-- Bảo vệ S3 bằng Block Public Access và Origin Access Control.
-- Áp dụng IAM least privilege và Secrets Manager.
-- Theo dõi pipeline bằng CloudWatch.
+- Hiểu ranh giới trách nhiệm giữa Next.js, NestJS và các dịch vụ AWS.
+- Dùng IAM Role thay cho static access key trên EC2.
+- Xây dựng workflow S3–Rekognition–Bedrock đúng với source.
+- Deploy ứng dụng container hóa sau Nginx và domain riêng.
+- Kiểm thử quyền truy cập ảnh, log và các chức năng nghiệp vụ.

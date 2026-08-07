@@ -1,50 +1,54 @@
 ---
-title: "Deliver Images with Amazon CloudFront"
+title: "Deliver private images through Amazon CloudFront"
 date: 2026-06-22
 weight: 4
 chapter: false
 pre: " <b> 5.4.4. </b> "
 ---
 
-#### 1. Prepare the S3 image bucket
+#### 1. Image-delivery principles
 
-1. Confirm that the bucket in `AWS_BUCKET_NAME` has **Block all public access** enabled.
-2. Use **Bucket owner enforced** Object Ownership.
-3. Do not enable S3 Static Website Hosting.
-4. CloudFront serves only objects under `delivery/`.
-5. Use versioned/hashed keys for completed images, for example:
+- Keep **Block Public Access** enabled on the S3 bucket.
+- Use an S3 REST origin with CloudFront Origin Access Control (OAC).
+- Allow object reads only from the designated CloudFront distribution.
+- Generate expiring signed URLs in the Backend; do not persist signed URLs.
+- When CloudFront is not configured locally, return an S3 pre-signed GET URL for the same object key.
 
-```text
-delivery/recipes/<user-id>/<recipe-id>/<image-id>-<hash>.jpg
+Direct S3 access must be denied:
+
+![S3 denies direct access to the private object](/images/1-Worklog/1.2-Week2/s3-direct-url-access-denied.png)
+
+#### 2. Create an OAC with AWS CLI
+
+```json
+{
+  "Name": "foodierecipe-images-oac",
+  "Description": "OAC for the private FoodieRecipe image bucket",
+  "SigningProtocol": "sigv4",
+  "SigningBehavior": "always",
+  "OriginAccessControlOriginType": "s3"
+}
 ```
 
-#### 2. Create the CloudFront distribution
+```bash
+aws cloudfront create-origin-access-control \
+  --origin-access-control-config file://oac-config.json
+```
 
-1. Open **CloudFront → Create distribution**.
-2. Choose the image S3 bucket domain, not its website endpoint.
-3. For Origin access, select **Origin access control settings (recommended)**.
-4. Create an OAC with **Sign requests (recommended)**.
-5. Set Viewer protocol policy to **Redirect HTTP to HTTPS**.
-6. Allow only `GET` and `HEAD`.
-7. Select a cache policy suitable for images.
-8. For private delivery, create a CloudFront public key/key group, enable **Restrict viewer access**, and attach the trusted key group to the behavior.
-9. Keep the corresponding private key outside the AWS Console so `api` can sign URLs; store its Base64 form in `CLOUDFRONT_PRIVATE_KEY_BASE64`.
-10. Create the distribution and record its ID/domain and key pair ID.
+Create the distribution with the S3 REST endpoint, attach the OAC, select **Redirect HTTP to HTTPS**, and allow only `GET` and `HEAD`.
 
-#### 3. Update the bucket policy
-
-Allow the CloudFront service principal to read only `delivery/` and restrict it by distribution ARN:
+#### 3. Grant CloudFront bucket access
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AllowCloudFrontReadOnly",
+      "Sid": "AllowFoodieRecipeCloudFrontRead",
       "Effect": "Allow",
       "Principal": { "Service": "cloudfront.amazonaws.com" },
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::my-foodie-ai-images-<account-id>/delivery/*",
+      "Resource": "arn:aws:s3:::my-foodie-ai-images/*",
       "Condition": {
         "StringEquals": {
           "AWS:SourceArn": "arn:aws:cloudfront::<account-id>:distribution/<distribution-id>"
@@ -55,82 +59,114 @@ Allow the CloudFront service principal to read only `delivery/` and restrict it 
 }
 ```
 
-#### 4. Promote the completed image to the delivery prefix
+Do not add a public principal or disable Block Public Access.
 
-After valid Bedrock output and user confirmation:
+#### 4. Create a trusted key group
 
-1. NestJS copies the image from `uploads/` to `delivery/` in `AWS_BUCKET_NAME`.
-2. Set `Content-Type` and `Cache-Control: public, max-age=31536000, immutable` for a versioned/hashed key.
-3. Confirm that the destination object exists.
-4. Store the delivery key and CloudFront URL in the database.
-5. Set the state to `completed`.
-6. Delete the source image when the retention policy permits.
-
-Never set `completed` before the copy succeeds.
-
-#### 5. Create a CloudFront signed URL in `api`
+1. Generate an RSA key pair and keep the private key out of Git.
+2. Upload the public key to CloudFront.
+3. Create a key group containing the public key.
+4. Attach the key group to the cache behavior under **Trusted key groups**.
+5. Store the Base64 private key in Secrets Manager.
 
 ```bash
-cd api
-npm install @aws-sdk/cloudfront-signer
+openssl genrsa -out cloudfront-private-key.pem 2048
+openssl rsa -pubout \
+  -in cloudfront-private-key.pem \
+  -out cloudfront-public-key.pem
+
+base64 -w 0 cloudfront-private-key.pem
 ```
 
-When `CLOUDFRONT_DOMAIN`, `CLOUDFRONT_KEY_PAIR_ID`, and `CLOUDFRONT_PRIVATE_KEY_BASE64` are set, NestJS decodes the private key and creates a URL expiring according to `CLOUDFRONT_URL_EXPIRES_IN`:
+#### 5. Generate a signed URL in NestJS
+
+`S3Service.getDeliveryUrl()` uses:
+
+```text
+CLOUDFRONT_DOMAIN
+CLOUDFRONT_KEY_PAIR_ID
+CLOUDFRONT_PRIVATE_KEY_BASE64
+CLOUDFRONT_URL_EXPIRES_IN
+```
 
 ```ts
-import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
-
-const privateKey = Buffer.from(
-  process.env.CLOUDFRONT_PRIVATE_KEY_BASE64!,
-  'base64',
-).toString('utf8');
-
-const signedUrl = getSignedUrl({
-  url: `https://${process.env.CLOUDFRONT_DOMAIN}/${deliveryKey}`,
-  keyPairId: process.env.CLOUDFRONT_KEY_PAIR_ID!,
+return getCloudFrontSignedUrl({
+  url: `https://${domain}/${encodedKey}`,
+  keyPairId,
   privateKey,
-  dateLessThan: new Date(
-    Date.now() + Number(process.env.CLOUDFRONT_URL_EXPIRES_IN ?? 300) * 1000,
-  ).toISOString(),
+  dateLessThan: new Date(Date.now() + expiresIn * 1000).toISOString(),
 });
 ```
 
-When the CloudFront variables are empty locally, `api` creates an S3 pre-signed GET URL for the same object.
-
-#### 6. Configure Next.js in `web`
+Partially supplied CloudFront configuration causes an explicit error instead of producing a broken URL. When all CloudFront values are empty, local fallback is:
 
 ```ts
-// web/next.config.ts
-const nextConfig = {
-  images: {
-    remotePatterns: [{
-      protocol: 'https',
-      hostname: process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN,
-    }],
-  },
-};
-
-export default nextConfig;
+return getSignedUrl(
+  s3Client,
+  new GetObjectCommand({ Bucket: bucket, Key: key }),
+  { expiresIn },
+);
 ```
 
-When using `next/image`, define `NEXT_PUBLIC_CLOUDFRONT_DOMAIN` in `web/.env.local`. NestJS returns a signed URL in this form:
+The local S3 pre-signed GET URL grants temporary object access:
 
-```text
-https://<distribution-domain>/<delivery-object-key>
+![Image loaded through an S3 pre-signed GET URL](/images/1-Worklog/1.2-Week2/s3-presigned-url-success.png)
+
+#### 6. Allow CloudFront images in Next.js
+
+In `web/next.config.ts`, normalize the domain and add it to `remotePatterns`:
+
+```ts
+const cloudFrontDomain = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN
+  ?.trim()
+  .replace(/^https?:\/\//, '')
+  .replace(/\/$/, '');
+
+images: {
+  remotePatterns: cloudFrontDomain
+    ? [{ protocol: 'https', hostname: cloudFrontDomain, pathname: '/**' }]
+    : [],
+}
 ```
 
-#### 7. Test caching and access
+The public value must be present before `pnpm build`. In the Dockerfile:
+
+```dockerfile
+ARG NEXT_PUBLIC_CLOUDFRONT_DOMAIN
+ENV NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+RUN pnpm build
+```
+
+#### 7. Deploy Next.js to production
+
+Next.js uses `output: "standalone"`, so run it as a container on EC2 behind Nginx instead of synchronizing `.next` to S3:
 
 ```bash
-curl -I https://<distribution-domain>/<object-key>
-curl -I https://my-foodie-ai-images-<account-id>.s3.<region>.amazonaws.com/delivery/<object-key>
+docker build \
+  --build-arg NEXT_PUBLIC_API_URL=https://myapps.io.vn/api \
+  --build-arg NEXT_PUBLIC_CLOUDFRONT_DOMAIN=<cloudfront-domain> \
+  -t foodierecipe-web:production web
+
+docker run -d \
+  --name foodierecipe-web \
+  --restart unless-stopped \
+  -p 127.0.0.1:3000:3000 \
+  foodierecipe-web:production
 ```
 
-Expected result:
+#### 8. Verify access and caching
 
-- The CloudFront URL returns 200.
-- Repeated requests show appropriate cache behavior in `X-Cache`.
-- The direct S3 URL returns 403.
-- Image replacements use a new key/hash instead of a distribution-wide invalidation.
+```bash
+# Valid signed URL
+curl -I '<SIGNED_CLOUDFRONT_URL>'
 
-Reference: [Restrict access to an Amazon S3 origin with CloudFront OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html).
+# Direct S3 URL must return 403
+curl -I 'https://my-foodie-ai-images.s3.<region>.amazonaws.com/ai-images/<key>.jpg'
+
+# Inspect the distribution
+aws cloudfront get-distribution \
+  --id <DISTRIBUTION_ID> \
+  --query 'Distribution.{Status:Status,Domain:DomainName}'
+```
+
+Request the signed URL repeatedly and inspect `X-Cache`. Prefer versioned or timestamped object keys to reduce invalidations.

@@ -9,9 +9,9 @@ pre: " <b> 1.5. </b> "
 ## 1. Objectives
 
 - Integrate Amazon Rekognition with images stored in S3.
-- Detect labels related to food and ingredients.
-- Identify inappropriate content before making an image visible.
-- Normalize recognition results for the Backend and Frontend.
+- Invoke `DetectLabels` from the NestJS Backend to recognize image content.
+- Filter and normalize labels by confidence to create an ingredient input list.
+- Forward Rekognition results to the Amazon Bedrock recipe-generation stage.
 
 ## 2. Work plan
 
@@ -19,52 +19,90 @@ pre: " <b> 1.5. </b> "
 
 | Day | Task | Expected result |
 | :--: | ---- | --------------- |
-| Monday | Study DetectLabels and DetectModerationLabels | Select the correct API for each purpose |
-| Tuesday | Build a Rekognition service in NestJS | Analyze an image from S3 |
-| Wednesday | Filter labels by confidence and category | Produce FoodieRecipe-relevant results |
-| Thursday | Build approve/reject rules and persist results | Automate content control |
-| Friday | Test varied food images and edge cases | Evaluate accuracy and thresholds |
+| Monday | Study Rekognition `DetectLabels`, IAM permissions, and the S3 object format | Define the required configuration |
+| Tuesday | Build `RekognitionService` and integrate the image-analysis endpoint | Analyze an S3 image from the Backend |
+| Wednesday | Filter labels by confidence, remove generic labels, and normalize names | Produce a relevant ingredient list |
+| Thursday | Connect Rekognition to the prompt builder and AI history | Complete the Bedrock input flow |
+| Friday | Test varied images and AWS SDK failures | Establish thresholds and fallback cases |
 
 ## 3. Work completed
 
-### 3.1. Calling Amazon Rekognition
+### 3.1. Uploading an image and invoking Amazon Rekognition
 
-- Passed the bucket and object key without downloading the image through the Backend.
-- Ran label detection and content moderation after upload confirmation.
-- Limited the number of labels and set confidence thresholds to reduce noise.
-- Handled timeouts, throttling, and missing-object errors.
+The Frontend sends the image as `multipart/form-data` to `POST /api/ai/analyze-image`. The endpoint is protected by `AuthGuard`; the Backend obtains the `userId`, uploads the file under the S3 `ai-images/` prefix, and passes the object key to `RekognitionService`. Rekognition reads the S3 object directly, so the Backend does not download the image a second time.
 
-### 3.2. Result normalization
+```ts
+const command = new DetectLabelsCommand({
+  Image: {
+    S3Object: {
+      Bucket: config.getOrThrow<string>('AWS_BUCKET_NAME'),
+      Name: imageKey,
+    },
+  },
+  MaxLabels: 30,
+  MinConfidence: 50,
+});
 
-Converted the response into an internal structure containing label name, confidence, result type, and analysis time. Labels related to food, dishes, or ingredients are prioritized as input for the Bedrock stage.
+return rekognitionClient.send(command);
+```
 
-### 3.3. Image moderation
+**The user selects an ingredient image before analysis:**
 
-- Set the image to `failed` with reason `moderation_rejected` when a moderation label exceeded the threshold.
-- Used the same `failed` state with reason `moderation_review` for uncertain cases requiring manual review.
-- Kept accepted images in `processing` while forwarding them to the Bedrock stage.
+![Ingredient image selected for analysis](/images/1-Worklog/1.5-Week5/ai-image-selected.png)
+
+### 3.2. Filtering and normalizing results
+
+The Backend retains Rekognition results as `{ name, confidence }` and rounds confidence to two decimal places. `IngredientService` accepts labels at **80%** or higher, removes generic labels such as `Food`, `Meal`, `Dish`, `Plate`, and `Ingredient`, normalizes selected synonyms, removes duplicates, and sorts by descending confidence.
+
+Raw labels are still returned to the Frontend for display, while the filtered ingredient list becomes input to `PromptBuilderService` for the Bedrock stage.
+
+**Detected labels and confidence scores are displayed in the interface:**
+
+![Amazon Rekognition food-image detection result](/images/1-Worklog/1.5-Week5/rekognition-labels-result.png)
+
+### 3.3. Persisting results and handling errors
+
+- Log the number of labels returned by Rekognition and the number of extracted ingredients.
+- Store normalized labels in `ai_generation_history` together with the user, model, status, and generated recipe.
+- If the S3 upload or Rekognition invocation fails, log the error and return a normalized exception without calling Bedrock.
+- Distinguish missing objects, missing `rekognition:DetectLabels` permission, Region mismatches, and temporary service failures.
+
+**Detected labels are persisted in AI-generation history:**
+
+![Rekognition labels stored in the database](/images/1-Worklog/1.5-Week5/rekognition-labels-history.png)
+
+### 3.4. Required configuration and permissions
+
+```env
+AWS_REGION=
+AWS_BUCKET_NAME=
+```
+
+During local development, the AWS SDK uses the configured credential chain. On EC2, the application uses an IAM role instead of static access keys. The Backend role requires only `s3:PutObject`, `s3:GetObject` on the image prefix and `rekognition:DetectLabels`.
 
 ## 4. Knowledge and skills gained
 
-- Used Rekognition with S3 objects.
-- Understood confidence scores and threshold selection.
-- Designed automated moderation with a human-review fallback.
-- Normalized AI output for downstream processing.
+- Invoked Rekognition with an S3 bucket and object key.
+- Understood the difference between the 50% request threshold and the 80% business filter.
+- Normalized, deduplicated, and sorted labels before prompt construction.
+- Added logging and failure handling around the AWS SDK pipeline.
 
 ## 5. Challenges and solutions
 
 | Challenge | Solution |
 | --------- | -------- |
-| Labels were too generic | Filtered by FoodieRecipe categories and confidence |
-| Complex dishes produced many results | Kept top labels and let Bedrock interpret their context |
-| Moderation results could be incorrect | Used conservative thresholds and a manual-review state |
+| Labels were too generic | Applied an ignore list and an 80% business threshold |
+| Labels were duplicated or synonymous | Normalized names, removed duplicates, and sorted by confidence |
+| Rekognition could not read the object | Verified Region, bucket, object key, and IAM permissions |
+| An image produced no useful ingredient | Returned a clear message and asked the user to select another image |
 
 ## 6. Deliverables
 
-- A Rekognition service integrated into NestJS.
-- Label detection and image moderation for S3 objects.
-- Normalized results for the Frontend and Amazon Bedrock.
+- `RekognitionService` integrated with NestJS `AIGenerationService`.
+- An authenticated endpoint that uploads to S3 and invokes `DetectLabels` successfully.
+- Labels filtered, normalized, displayed on the Frontend, and stored in AI history.
+- An ingredient list ready for Amazon Bedrock prompt construction.
 
 ## 7. Next-week plan
 
-Use Amazon Bedrock to analyze images and labels and suggest recipe content.
+Use Amazon Bedrock to process Rekognition labels/ingredients and generate recipe content.

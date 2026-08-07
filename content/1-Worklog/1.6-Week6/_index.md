@@ -8,10 +8,10 @@ pre: " <b> 1.6. </b> "
 
 ## 1. Objectives
 
-- Integrate a multimodal model through Amazon Bedrock.
-- Combine the S3 image and Rekognition labels to understand food context.
-- Suggest a dish name, description, ingredients, and recipe tags.
-- Request structured output and validate it before use.
+- Integrate Amazon Bedrock Runtime with the NestJS Backend.
+- Build recipe prompts from Rekognition labels and extracted ingredients.
+- Generate a title, description, ingredients, steps, and nutrition data.
+- Parse, validate, and persist structured results in PostgreSQL.
 
 ## 2. Work plan
 
@@ -19,52 +19,116 @@ pre: " <b> 1.6. </b> "
 
 | Day | Task | Expected result |
 | :--: | ---- | --------------- |
-| Monday | Study Bedrock Runtime and multimodal model capabilities | Select an appropriate image and prompt format |
-| Tuesday | Build a Bedrock service in NestJS | Invoke the model and receive a response |
-| Wednesday | Design prompts combining images and Rekognition labels | Improve result relevance |
-| Thursday | Add JSON schema, validation, and fallback handling | Process model responses reliably |
-| Friday | Evaluate quality, latency, token usage, and cost | Establish suitable prompts and usage limits |
+| Monday | Study Bedrock Runtime, the Converse API, and `InvokeModel` permission | Define the model and service configuration |
+| Tuesday | Build `BedrockService` in NestJS | Invoke the model with a text prompt successfully |
+| Wednesday | Build a prompt from Rekognition labels/ingredients | Receive a Vietnamese recipe matching the JSON schema |
+| Thursday | Parse, validate, localize ingredient names, and persist recipe/history | Complete the AI data flow |
+| Friday | Test the interface, invalid JSON, latency, and token limits | Stabilize the pipeline |
 
 ## 3. Work completed
 
-### 3.1. Input preparation
+### 3.1. Building a prompt from Rekognition results
 
-- Sent only images that passed Rekognition moderation.
-- Normalized image size and format for model limits.
-- Included high-confidence labels as additional context.
-- Excluded unnecessary personal or sensitive user information from prompts.
+In the current implementation, Bedrock does not receive the image file directly. Rekognition analyzes the image first; `PromptBuilderService` receives the filtered ingredients with confidence values and builds a text prompt. The prompt requires the model to write entirely in Vietnamese, rely primarily on detected ingredients, and return valid JSON only.
 
-### 3.2. Structured prompts and results
+The output fields are `detectedIngredients`, `title`, `description`, `cookTime`, `difficulty`, `servings`, `ingredients`, `steps`, `tips`, and `nutrition`. Each original `sourceName` remains unchanged so the Backend can map the English label to its Vietnamese ingredient name.
 
-Asked the model to return JSON containing a suggested dish name, short description, recognizable ingredients, tags, and confidence. NestJS parses and validates the response; AI output remains a suggestion that the user reviews before saving.
+### 3.2. Invoking Amazon Bedrock Runtime
 
-### 3.3. Reliability and cost
+`BedrockService` uses `BedrockRuntimeClient` and `ConverseCommand`. The model comes from `BEDROCK_MODEL_ID`; output is limited to 1,500 tokens with a temperature of `0.7`.
 
-- Limited output length and retry count.
-- Cached results by image hash to avoid repeated analysis.
-- Recorded the model ID, prompt version, and processing time for traceability.
-- Clearly labeled AI suggestions and allowed user edits.
+```ts
+const command = new ConverseCommand({
+  modelId: config.getOrThrow<string>('BEDROCK_MODEL_ID'),
+  messages: [
+    {
+      role: ConversationRole.USER,
+      content: [{ text: prompt }],
+    },
+  ],
+  inferenceConfig: {
+    maxTokens: 1500,
+    temperature: 0.7,
+  },
+});
+
+const response = await bedrockClient.send(command);
+```
+
+```env
+AWS_REGION=
+BEDROCK_MODEL_ID=
+```
+
+Local development uses the configured AWS credential chain; EC2 uses an IAM role with `bedrock:InvokeModel` for the required model. Access keys are never embedded in source code or the Docker image.
+
+**The Frontend displays a processing state while Bedrock generates the recipe:**
+
+![Amazon Bedrock processing a recipe-generation request](/images/1-Worklog/1.6-Week6/bedrock-processing.png)
+
+### 3.3. Parsing, validating, and persisting the recipe
+
+The Backend extracts JSON from the Bedrock response, calls `JSON.parse`, and validates at least `title`, `ingredients`, and `steps`. If the response contains no JSON, malformed JSON, or missing required fields, the API returns `BadRequestException` and records a `FAILED` history entry.
+
+For valid data, the Backend maps ingredient names, saves the recipe with source `AI_BEDROCK`, creates related ingredients and steps in a transaction, and stores `ai_generation_history` with the model, prompt, labels, recipe ID, and `SUCCESS` status.
+
+The Frontend response includes:
+
+```json
+{
+  "labels": [{ "name": "Bread", "confidence": 98.9 }],
+  "ingredients": [{ "name": "Bánh mì", "confidence": 98.9 }],
+  "recipe": {
+    "id": 1,
+    "title": "Recipe title",
+    "description": "Description",
+    "cookTime": 15,
+    "difficulty": "Easy",
+    "servings": 4,
+    "ingredients": [],
+    "steps": []
+  },
+  "historyId": 1
+}
+```
+
+**The interface displays Rekognition labels and the Bedrock-generated recipe:**
+
+![Recipe-generation result from Amazon Bedrock](/images/1-Worklog/1.6-Week6/bedrock-recipe-result.png)
+
+**The detail page presents ingredients and steps from the AI-generated recipe:**
+
+![AI-generated recipe details](/images/1-Worklog/1.6-Week6/generated-recipe-details.png)
+
+### 3.4. Reliability and cost control
+
+- Limit `maxTokens` and invoke Bedrock only after Rekognition produces useful input.
+- Record the model ID, prompt, labels, status, and creation time for traceability.
+- Avoid unlimited automatic retries when the model returns invalid JSON.
+- Clearly present the result as AI-generated content for user review.
 
 ## 4. Knowledge and skills gained
 
-- Invoked a multimodal model through Amazon Bedrock Runtime.
-- Designed prompts using image and Rekognition context.
-- Parsed, validated, and recovered from malformed AI output.
-- Balanced result quality, latency, and model cost.
+- Invoked a model through the Bedrock Runtime Converse API.
+- Designed a strict prompt from Rekognition data and a JSON schema.
+- Parsed, validated, localized, and persisted responses in a transaction.
+- Tracked successful/failed history and controlled token-related cost.
 
 ## 5. Challenges and solutions
 
 | Challenge | Solution |
 | --------- | -------- |
-| AI output did not match JSON | Specified a strict schema and validated it in the Backend |
-| Results contained uncertain information | Added confidence, used suggestion wording, and required user review |
-| Reanalyzing images increased cost | Cached by image hash and reused valid results |
+| AI output did not match JSON | Required JSON-only output, extracted the object, and validated required fields |
+| Rekognition ingredient names were in English | Preserved `sourceName` and requested Vietnamese names in the prompt |
+| The response was valid but persistence failed | Used a transaction and recorded `FAILED` history |
+| Long model output increased cost | Limited `maxTokens` and sent only filtered labels |
 
 ## 6. Deliverables
 
-- A NestJS Bedrock service receiving normalized images and labels.
-- A structured prompt for recipe suggestions.
-- Validation, caching, fallback, and user-confirmation handling.
+- `BedrockService` successfully invoking the model through `ConverseCommand`.
+- A Vietnamese recipe prompt following a JSON schema built from Rekognition labels.
+- Recipes, ingredients, steps, and AI history persisted in PostgreSQL.
+- Frontend processing, label, recipe-summary, and detail views working end to end.
 
 ## 7. Next-week plan
 

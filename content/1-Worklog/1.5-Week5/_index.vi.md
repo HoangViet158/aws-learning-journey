@@ -9,9 +9,9 @@ pre: " <b> 1.5. </b> "
 ## 1. Mục tiêu
 
 - Tích hợp Amazon Rekognition với ảnh lưu trên S3.
-- Nhận diện nhãn liên quan đến món ăn và nguyên liệu.
-- Phát hiện nội dung không phù hợp trước khi công khai ảnh.
-- Chuẩn hóa kết quả nhận diện để Backend và Frontend sử dụng.
+- Gọi `DetectLabels` từ Backend NestJS để nhận diện nội dung ảnh.
+- Lọc và chuẩn hóa label theo confidence để tạo danh sách nguyên liệu đầu vào.
+- Chuyển kết quả Rekognition sang bước tạo công thức bằng Amazon Bedrock.
 
 ## 2. Kế hoạch công việc
 
@@ -19,52 +19,90 @@ pre: " <b> 1.5. </b> "
 
 | Ngày | Công việc | Kết quả mong đợi |
 | :--: | --------- | ---------------- |
-| Thứ 2 | Tìm hiểu DetectLabels và DetectModerationLabels | Chọn API phù hợp cho từng mục đích |
-| Thứ 3 | Tạo Rekognition service trong NestJS | Phân tích được ảnh từ S3 |
-| Thứ 4 | Lọc label theo confidence và nhóm dữ liệu | Có kết quả phù hợp với FoodieRecipe |
-| Thứ 5 | Xây quy tắc duyệt/từ chối ảnh và lưu kết quả | Kiểm soát nội dung tự động |
-| Thứ 6 | Thử nghiệm với nhiều ảnh món ăn và trường hợp biên | Đánh giá độ chính xác và ngưỡng |
+| Thứ 2 | Tìm hiểu Rekognition `DetectLabels`, quyền IAM và định dạng S3 object | Xác định được cấu hình cần thiết |
+| Thứ 3 | Xây `RekognitionService` và tích hợp endpoint phân tích ảnh | Backend nhận diện được ảnh đã upload lên S3 |
+| Thứ 4 | Lọc label theo confidence, loại nhãn chung và chuẩn hóa tên | Có danh sách nguyên liệu phù hợp |
+| Thứ 5 | Kết nối Rekognition với prompt builder và lịch sử AI | Hoàn thiện luồng dữ liệu cho Bedrock |
+| Thứ 6 | Thử nghiệm nhiều ảnh và xử lý lỗi AWS SDK | Xác định ngưỡng và trường hợp fallback |
 
 ## 3. Nội dung thực hiện
 
-### 3.1. Gọi Amazon Rekognition
+### 3.1. Upload ảnh và gọi Amazon Rekognition
 
-- Truyền bucket và object key thay vì tải lại toàn bộ ảnh qua Backend.
-- Gọi nhận diện label và kiểm duyệt nội dung sau khi upload được xác nhận.
-- Giới hạn số label và đặt ngưỡng confidence để giảm nhiễu.
-- Xử lý timeout, throttling và lỗi object không tồn tại.
+Frontend gửi ảnh dạng `multipart/form-data` đến `POST /api/ai/analyze-image`. Endpoint được bảo vệ bằng `AuthGuard`; Backend lấy `userId`, upload file vào prefix `ai-images/` của bucket S3 rồi truyền object key cho `RekognitionService`. Rekognition đọc trực tiếp object trên S3 nên Backend không cần tải ảnh về lần thứ hai.
 
-### 3.2. Chuẩn hóa kết quả
+```ts
+const command = new DetectLabelsCommand({
+  Image: {
+    S3Object: {
+      Bucket: config.getOrThrow<string>('AWS_BUCKET_NAME'),
+      Name: imageKey,
+    },
+  },
+  MaxLabels: 30,
+  MinConfidence: 50,
+});
 
-Chuyển response thành cấu trúc nội bộ gồm tên label, confidence, loại kết quả và thời điểm phân tích. Các label liên quan đến food, dish hoặc ingredient được ưu tiên làm dữ liệu đầu vào cho bước Bedrock.
+return rekognitionClient.send(command);
+```
 
-### 3.3. Kiểm duyệt ảnh
+**Người dùng chọn ảnh nguyên liệu trước khi bắt đầu phân tích:**
 
-- Nếu moderation label vượt ngưỡng, chuyển ảnh sang `failed` và lưu lý do `moderation_rejected`.
-- Với kết quả chưa rõ ràng, vẫn dùng `failed` nhưng lưu lý do `moderation_review` để kiểm tra thủ công.
-- Ảnh vượt qua kiểm duyệt tiếp tục giữ trạng thái `processing` để chuyển sang bước Bedrock.
+![Ảnh nguyên liệu đã được chọn để phân tích](/images/1-Worklog/1.5-Week5/ai-image-selected.png)
+
+### 3.2. Lọc và chuẩn hóa kết quả
+
+Backend giữ response Rekognition dưới dạng `{ name, confidence }`, làm tròn confidence đến hai chữ số. `IngredientService` chỉ lấy label từ **80%** trở lên, bỏ các nhãn quá chung như `Food`, `Meal`, `Dish`, `Plate` và `Ingredient`, chuẩn hóa một số tên đồng nghĩa, loại bỏ phần tử trùng rồi sắp xếp confidence giảm dần.
+
+Các label gốc vẫn được trả cho Frontend để hiển thị, còn danh sách đã lọc được đưa vào `PromptBuilderService` làm ngữ cảnh cho Bedrock.
+
+**Kết quả nhận diện label và confidence được hiển thị trên giao diện:**
+
+![Kết quả Amazon Rekognition nhận diện ảnh món ăn](/images/1-Worklog/1.5-Week5/rekognition-labels-result.png)
+
+### 3.3. Lưu kết quả và xử lý lỗi
+
+- Ghi log số lượng label Rekognition trả về và số nguyên liệu trích xuất được.
+- Lưu danh sách label đã chuẩn hóa trong `ai_generation_history` cùng người dùng, model, trạng thái và công thức được tạo.
+- Nếu upload S3 hoặc Rekognition thất bại, Backend ghi log lỗi và trả exception chuẩn hóa; không tiếp tục gọi Bedrock.
+- Phân biệt lỗi thiếu object, thiếu quyền `rekognition:DetectLabels`, sai Region và lỗi dịch vụ tạm thời.
+
+**Các label nhận diện được lưu trong lịch sử tạo công thức AI:**
+
+![Label Rekognition được lưu trong cơ sở dữ liệu](/images/1-Worklog/1.5-Week5/rekognition-labels-history.png)
+
+### 3.4. Cấu hình và quyền cần thiết
+
+```env
+AWS_REGION=
+AWS_BUCKET_NAME=
+```
+
+Khi phát triển local, AWS SDK sử dụng credential chain đã cấu hình. Khi chạy trên EC2, ứng dụng dùng IAM Role thay cho static access key. Role của Backend chỉ cần `s3:PutObject`, `s3:GetObject` trên prefix ảnh và `rekognition:DetectLabels`.
 
 ## 4. Kiến thức và kỹ năng đạt được
 
-- Sử dụng Rekognition với object trên S3.
-- Hiểu confidence score và cách chọn ngưỡng phù hợp.
-- Thiết kế luồng kiểm duyệt tự động có phương án kiểm tra thủ công.
-- Chuẩn hóa kết quả AI cho các bước xử lý tiếp theo.
+- Gọi Rekognition bằng bucket và object key trên S3.
+- Hiểu sự khác nhau giữa ngưỡng request 50% và ngưỡng lọc nghiệp vụ 80%.
+- Chuẩn hóa, loại trùng và sắp xếp label trước khi đưa vào prompt.
+- Tổ chức log và xử lý lỗi cho pipeline AWS SDK.
 
 ## 5. Khó khăn và hướng xử lý
 
 | Khó khăn | Hướng xử lý |
 | -------- | ----------- |
-| Label quá chung chung | Lọc theo nhóm từ khóa FoodieRecipe và confidence |
-| Ảnh món ăn phức tạp cho nhiều kết quả | Giữ top label và chuyển cho Bedrock tổng hợp ngữ cảnh |
-| Kết quả kiểm duyệt có thể sai | Dùng ngưỡng thận trọng và trạng thái review thủ công |
+| Label quá chung chung | Dùng danh sách bỏ qua và ngưỡng nghiệp vụ 80% |
+| Nhiều label trùng hoặc đồng nghĩa | Chuẩn hóa tên, loại trùng và sắp xếp theo confidence |
+| Rekognition không đọc được object | Kiểm tra Region, bucket, object key và quyền IAM |
+| Ảnh không tạo ra nguyên liệu hữu ích | Trả thông báo rõ ràng và yêu cầu người dùng chọn ảnh khác |
 
 ## 6. Kết quả đầu ra
 
-- Rekognition service tích hợp trong NestJS.
-- Luồng nhận diện label và kiểm duyệt ảnh từ S3.
-- Dữ liệu kết quả chuẩn hóa cho Frontend và Amazon Bedrock.
+- `RekognitionService` tích hợp với `AIGenerationService` trong NestJS.
+- Endpoint xác thực nhận ảnh, upload S3 và gọi `DetectLabels` thành công.
+- Label được lọc, chuẩn hóa, hiển thị trên Frontend và lưu vào lịch sử AI.
+- Danh sách nguyên liệu đã sẵn sàng để xây prompt cho Amazon Bedrock.
 
 ## 7. Kế hoạch tuần tiếp theo
 
-Dùng Amazon Bedrock phân tích ảnh và label để gợi ý nội dung công thức.
+Dùng Amazon Bedrock phân tích danh sách label/nguyên liệu từ Rekognition để tạo nội dung công thức.

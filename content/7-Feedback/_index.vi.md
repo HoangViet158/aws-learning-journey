@@ -30,9 +30,9 @@ Bên cạnh đó, Team Admin hỗ trợ nhanh chóng trong việc cung cấp tà
 
 Theo em, nội dung thực tập tại FCAJ phù hợp với chuyên ngành Công nghệ thông tin. Những kiến thức nền tảng về lập trình web, mạng máy tính, cơ sở dữ liệu và phân tích hệ thống được áp dụng trực tiếp khi xây dựng FoodieRecipe.
 
-Trong dự án, nhóm sử dụng **Next.js** trong thư mục `web` để phát triển Frontend và **NestJS** trong thư mục `api` để xây dựng Backend. Hệ thống sử dụng **Amazon RDS for PostgreSQL** để lưu dữ liệu quan hệ; **Amazon S3** để lưu ảnh; **Amazon Rekognition** để nhận diện và kiểm duyệt ảnh; **Amazon Bedrock** để gợi ý nội dung công thức; và **Amazon CloudFront** để phân phối ảnh với tốc độ tốt hơn.
+Trong dự án, em sử dụng **Next.js** trong thư mục `web` để phát triển Frontend với chức năng quản lý công thức, lượt thích và bình luận; **NestJS** trong thư mục `api` để xây dựng Backend. Hệ thống sử dụng **Amazon RDS for PostgreSQL** để lưu dữ liệu quan hệ; **Amazon S3** để lưu ảnh; **Amazon Rekognition** để nhận diện và kiểm duyệt ảnh; **Amazon Bedrock** để gợi ý nội dung công thức; và **Amazon CloudFront** để phân phối ảnh với tốc độ tốt hơn.
 
-Kiến trúc sản phẩm hoàn chỉnh còn đề xuất Amazon EC2, Docker, Nginx, AWS Secrets Manager, IAM và Amazon CloudWatch cho việc vận hành, bảo mật và giám sát. Phạm vi cá nhân của em tập trung vào tích hợp `web`, `api` và luồng ảnh S3–Rekognition–Bedrock–CloudFront; em không trực tiếp phụ trách triển khai Backend lên EC2.
+Em triển khai kiến trúc sản phẩm hoàn chỉnh với Amazon EC2, Docker, Nginx, Amazon RDS, AWS Secrets Manager, IAM và Amazon CloudWatch cho việc vận hành, bảo mật và giám sát. Công việc bao gồm xây dựng `web`, `api`, triển khai Backend lên EC2, kết nối RDS, phát hành Frontend qua S3/CloudFront và hoàn thiện luồng ảnh S3–Rekognition–Bedrock–CloudFront.
 
 Việc kết hợp kiến thức lập trình với Cloud và Generative AI giúp em nhìn rõ hơn mối liên hệ giữa các môn học ở trường và yêu cầu thực tế của một sản phẩm phần mềm. Đây là những kiến thức có tính ứng dụng cao và bổ sung cho các nội dung mà em chưa có nhiều cơ hội thực hành chuyên sâu trên giảng đường.
 

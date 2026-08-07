@@ -1,5 +1,5 @@
 ---
-title: "Clean Up Resources"
+title: "Resource cleanup"
 date: 2026-06-22
 weight: 6
 chapter: false
@@ -8,56 +8,65 @@ pre: " <b> 5.6. </b> "
 
 #### Summary
 
-You completed the FoodieRecipe flow from Next.js image upload through NestJS, S3, Rekognition, Bedrock, and CloudFront delivery. This final section removes workshop resources to prevent ongoing charges.
+The completed workshop runs Next.js and NestJS Docker containers on EC2/Nginx and uses RDS PostgreSQL, a private S3 bucket, Rekognition, Bedrock, CloudFront signed URLs, Secrets Manager, IAM, and CloudWatch. If this is a practice environment, remove resources to prevent additional charges.
 
 {{% notice danger %}}
-Delete only resources created specifically for this workshop. Never delete a bucket, database, role, secret, or log group used by another environment. Back up any required data first.
+The following steps delete data. Confirm the AWS account, Region, and exact resource names first, and create required snapshots or backups.
 {{% /notice %}}
 
 #### 1. Stop new requests
 
-1. Stop the `web` application and image-upload scripts.
-2. Stop the NestJS container or place the API in maintenance mode.
-3. Confirm that no image record remains in `processing`.
+1. Stop demos and jobs that invoke Bedrock or Rekognition.
+2. Stop the `foodierecipe-web` and `foodierecipe-api` containers.
+3. Remove or replace the `myapps.io.vn` DNS record if the environment is retired.
 
-#### 2. Delete the CloudFront distribution
+#### 2. Delete CloudFront resources
 
-1. Open CloudFront and select the FoodieRecipe distribution.
-2. Choose **Disable** and wait for the update to complete.
-3. Choose **Delete**.
-4. Delete the Origin Access Control if no other distribution uses it.
+1. Retrieve the distribution configuration and ETag.
+2. Set `Enabled=false`, update it, and wait for `Deployed`.
+3. Delete the distribution with the latest ETag.
+4. Delete the trusted key group and public key after no behavior references them.
+5. Delete the OAC after removing the distribution.
 
-#### 3. Empty and delete the S3 image bucket
+```bash
+aws cloudfront get-distribution-config --id <distribution-id>
+aws cloudfront delete-distribution \
+  --id <distribution-id> \
+  --if-match <etag-after-disable>
+```
 
-1. Delete objects under both `uploads/` and `delivery/`.
-2. If versioning is enabled, delete object versions and delete markers.
-3. Remove lifecycle/CORS configuration if needed.
-4. Delete the image bucket after it is empty.
+#### 3. Empty and delete the S3 bucket
 
-#### 4. Delete Backend resources
+```bash
+aws s3 rm s3://my-foodie-ai-images --recursive
+aws s3api delete-bucket --bucket my-foodie-ai-images
+```
 
-If created only for the workshop:
+For a versioned bucket, delete every version and delete marker before deleting the bucket.
 
-1. Stop and terminate the EC2 instance.
-2. Delete unreferenced Security Groups.
-3. Delete RDS; create a final snapshot only when data must be retained.
-4. Delete unnecessary test snapshots/backups.
+#### 4. Delete Backend and database resources
 
-#### 5. Delete secrets, roles, and logs
+1. Stop and terminate EC2.
+2. Release the Elastic IP if it is no longer needed.
+3. Delete RDS and create a final snapshot only when data must be retained.
+4. Delete the DB subnet group and Security Groups after dependencies are gone.
+5. Delete the VPC, subnets, and route tables only when they were created exclusively for the workshop.
 
-1. Schedule deletion of `foodierecipe/database` if it is workshop-only.
-2. Detach policies and delete `FoodieRecipeBackendRole` after deleting EC2.
-3. Delete unused custom policies.
-4. Delete `/foodierecipe/api` and workshop-only alarms/dashboards.
+#### 5. Delete secrets, IAM resources, and logs
+
+1. Delete `prod/foodie-recipe/db` and `prod/foodie-recipe/app` with an appropriate recovery window.
+2. Remove the `/foodierecipe/prod/` Parameter Store path if present.
+3. Detach policies and delete the IAM role after deleting EC2.
+4. Delete `foodie-recipe-log` and unused alarms/SNS topics.
+5. Do not delete `RDSOSMetrics` while another resource still uses that shared log group.
 
 #### 6. Confirm cost status
 
-1. Open **Cost Explorer** and filter by the FoodieRecipe tag/name.
-2. Review S3, CloudFront, EC2, RDS, Rekognition, Bedrock, Secrets Manager, and CloudWatch.
-3. Keep the Budget Alert for several days if delayed charges require monitoring.
+Open **Billing and Cost Management** and review EC2, RDS, S3, CloudFront, Secrets Manager, CloudWatch, Rekognition, and Bedrock. Budget alerts can continue after cleanup because billing data is delayed.
 
 #### Result
 
-- Workshop resources are removed in dependency order.
-- No test S3 objects, CloudFront distribution, EC2/RDS, or secret remains.
-- Shared resources and retained data remain unaffected.
+- No test EC2/RDS, Elastic IP, image objects, CloudFront distribution, or secrets remain.
+- DNS no longer points to a deleted server.
+- No workload invokes Rekognition/Bedrock or writes CloudWatch Logs.
+- Required snapshots and shared resources remain intentionally.

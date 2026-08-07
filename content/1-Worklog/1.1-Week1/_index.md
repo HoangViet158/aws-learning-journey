@@ -11,7 +11,7 @@ pre: " <b> 1.1. </b> "
 - Understand cloud computing and core AWS concepts.
 - Secure the AWS account with IAM and MFA.
 - Configure an AWS Budget Alert for cost control.
-- Analyze requirements and design the FoodieRecipe image-processing pipeline.
+- Analyze requirements and design the complete FoodieRecipe architecture.
 
 ## 2. Work plan
 
@@ -23,7 +23,7 @@ pre: " <b> 1.1. </b> "
 | Tuesday | Create the account, enable MFA, and study the Shared Responsibility Model | Establish basic account protection |
 | Wednesday | Create IAM users/groups, apply least privilege, and configure the AWS CLI | Access AWS without using the root user |
 | Thursday | Create a Budget Alert and enable cost notifications | Establish budget monitoring |
-| Friday | Analyze FoodieRecipe image features and architecture | Define the initial scope and pipeline diagram |
+| Friday | Analyze FoodieRecipe features, data, and deployment architecture | Define the initial scope and architecture diagram |
 
 ## 3. Work completed
 
@@ -34,15 +34,27 @@ pre: " <b> 1.1. </b> "
 - Created an IAM user for Console and AWS CLI operations.
 - Verified the active identity with `aws sts get-caller-identity`.
 
+**AWS account created successfully:**
+
+![AWS account created successfully](/images/1-Worklog/1.1-Week1/aws-account-created.png)
+
+**Verify the account and security configuration on the IAM Dashboard:**
+
+![IAM Dashboard and account security status](/images/1-Worklog/1.1-Week1/iam-dashboard.png)
+
 ### 3.2. Budget management
 
 - Created a monthly AWS cost budget.
 - Configured thresholds for actual and forecasted spending.
 - Registered an email recipient and verified the Budget status.
 
+**Monitor costs and budget status in Billing and Cost Management:**
+
+![AWS cost and Budget status monitoring](/images/1-Worklog/1.1-Week1/budget-dashboard.png)
+
 ### 3.3. FoodieRecipe analysis
 
-Defined the image-related features: selection and preview, upload, content moderation, food recognition, AI-assisted recipe suggestions, and consistently fast image display. The architecture uses Next.js for the Frontend, NestJS for the Backend, Amazon S3 for storage, Amazon Rekognition and Amazon Bedrock for AI analysis, and Amazon CloudFront for image delivery.
+Defined account, recipe, ingredient, category, search, like, comment, and AI image-workflow requirements. Designed an architecture using Next.js, NestJS, EC2, Docker, Nginx, RDS, S3, Rekognition, Bedrock, CloudFront, IAM, Secrets Manager, and CloudWatch, including deployment, observability, and cost-control flows.
 
 ## 4. Knowledge and skills gained
 
@@ -63,8 +75,8 @@ Defined the image-related features: selection and preview, upload, content moder
 
 - An AWS account protected by MFA with a development IAM user.
 - A configured AWS Budget Alert.
-- FoodieRecipe requirements and an image-processing pipeline draft.
+- FoodieRecipe requirements, data model, application/AWS architecture, and deployment plan.
 
 ## 7. Next-week plan
 
-Study Amazon S3 and design recipe-image upload, storage, and access control.
+Design Amazon S3, Amazon RDS, the data model, IAM, and Secrets Manager for FoodieRecipe.

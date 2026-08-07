@@ -1,107 +1,97 @@
 ---
-title: "Suggest Recipe Content with Amazon Bedrock"
+title: "Generate and persist recipes with Amazon Bedrock"
 date: 2026-06-22
 weight: 3
 chapter: false
 pre: " <b> 5.4.3. </b> "
 ---
 
-#### 1. Select a model
+#### 1. Select a model and grant access
 
-1. Open the Amazon Bedrock Console in the selected Region.
-2. Confirm that the account can use a multimodal model supporting images.
-3. Store the model ID in `BEDROCK_MODEL_ID`.
-4. Confirm that the EC2 role has the applicable `bedrock:InvokeModel` permission.
+Set the model through `BEDROCK_MODEL_ID` and confirm that it is available in the selected Region. The EC2 IAM role needs only permission to invoke the selected model:
 
-{{% notice warning %}}
-Capabilities, model IDs, and Region support can change. Do not hard-code the model ID in source code; use an environment variable or managed configuration.
-{{% /notice %}}
-
-#### 2. Install the package
-
-```bash
-npm install @aws-sdk/client-bedrock-runtime
-```
-
-#### 3. Prepare the prompt
-
-Require a clear JSON output:
-
-```text
-Analyze this food image and the Rekognition labels below.
-Return JSON only with this schema:
+```json
 {
-  "dishName": "string",
-  "description": "string",
-  "ingredients": ["string"],
-  "tags": ["string"],
-  "confidence": 0
+  "Effect": "Allow",
+  "Action": "bedrock:InvokeModel",
+  "Resource": "arn:aws:bedrock:<region>::foundation-model/<model-id>"
 }
-Treat every field as a suggestion. Do not invent quantities.
-Labels: <normalized-labels>
 ```
 
-#### 4. Invoke Bedrock Runtime
+Do not hard-code the model ID in the service; keep it configurable per environment.
 
-Read the object under `uploads/` into bytes, then send the image and prompt to the model:
+#### 2. Build a prompt from ingredients
+
+Bedrock does not receive the image directly in this implementation. `PromptBuilderService` receives ingredients from Rekognition and builds a text prompt requesting exactly one JSON object:
 
 ```ts
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
+const ingredientList = ingredients
+  .map((item) => `- ${item.name} (${item.confidence}%)`)
+  .join('\n');
 
-const s3 = new S3Client({ region: process.env.AWS_REGION });
-const bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+return `
+You are a professional chef.
+Detected ingredients:
+${ingredientList}
 
-async function suggestRecipe(key: string, labels: unknown[]) {
-  const object = await s3.send(new GetObjectCommand({
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: key,
-  }));
-  const bytes = await object.Body!.transformToByteArray();
-
-  const result = await bedrock.send(new ConverseCommand({
-    modelId: process.env.BEDROCK_MODEL_ID,
-    messages: [{
-      role: 'user',
-      content: [
-        { image: { format: 'jpeg', source: { bytes } } },
-        { text: buildPrompt(labels) },
-      ],
-    }],
-    inferenceConfig: { maxTokens: 800, temperature: 0.2 },
-  }));
-
-  return result.output?.message?.content?.find(item => item.text)?.text;
-}
+Requirements:
+- Create ONE recipe.
+- Write the recipe in Vietnamese.
+- Return ONLY valid JSON without markdown.
+- Preserve every sourceName from the input.
+`;
 ```
 
-The `format` value must match the actual image. Normalize JPEG/PNG/WebP before invocation when necessary.
+The output schema contains `detectedIngredients`, `title`, `description`, `cookTime`, `difficulty`, `servings`, `ingredients`, `steps`, `tips`, and `nutrition`.
 
-#### 5. Validate the result
+#### 3. Invoke Bedrock Runtime
 
-1. Remove code fences if the model returned them.
-2. Parse JSON inside `try/catch`.
-3. Validate the schema with the project's validation library.
-4. Limit array counts and string lengths.
-5. If output remains invalid after allowed retries, set `failed` with `bedrock_invalid_output`.
-6. Store the model ID, prompt version, latency, and normalized result.
+`BedrockService` uses the Converse API:
 
-{{% notice note %}}
-AI output is only a suggestion. The user must review dish names, descriptions, and ingredients before saving the recipe.
-{{% /notice %}}
+```ts
+const command = new ConverseCommand({
+  modelId: config.getOrThrow('BEDROCK_MODEL_ID'),
+  messages: [{
+    role: ConversationRole.USER,
+    content: [{ text: prompt }],
+  }],
+  inferenceConfig: {
+    maxTokens: 1500,
+    temperature: 0.7,
+  },
+});
 
-#### 6. Cache and control cost
+const response = await client.send(command);
+return response.output?.message?.content?.[0]?.text ?? '';
+```
 
-- Create a checksum/hash for each image.
-- Reuse a result when the hash, model ID, and prompt version match.
-- Limit output tokens, retries, and concurrent requests.
-- Never invoke Bedrock after failed Rekognition moderation.
+While awaiting the response, the UI disables submission to prevent duplicate requests:
 
-#### 7. Test
+![Bedrock generating a recipe](/images/1-Worklog/1.6-Week6/bedrock-processing.png)
 
-- Valid output matches the JSON schema.
-- Output containing markdown/code fences is parsed safely.
-- Timeout or throttling uses limited retries.
-- AI output is never presented as confirmed fact.
+#### 4. Validate and persist transactionally
 
-Reference: [Amazon Bedrock Runtime Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html).
+The Backend parses JSON, checks required fields, and maps recognized ingredients to Vietnamese names. `RecipePersistenceService` then stores the recipe, ingredients, and steps in one transaction. AI history records the model, prompt, labels, recipe ID, and status.
+
+If parsing, validation, or the transaction fails, history is recorded as `FAILED`, and the API returns a normalized error without leaving a partial recipe.
+
+#### 5. Result
+
+![Recipe generated by Bedrock](/images/1-Worklog/1.6-Week6/bedrock-recipe-result.png)
+
+![Persisted ingredients and preparation steps](/images/1-Worklog/1.6-Week6/generated-recipe-details.png)
+
+#### 6. Quality and cost controls
+
+- Do not call Bedrock when the ingredient list is empty.
+- Keep the prompt concise and bound `maxTokens` and retries.
+- Validate JSON before opening a database transaction.
+- Log model ID, duration, and history ID; never log image/base64 data or secrets.
+- Monitor successful and failed calls to detect unstable prompts or models.
+
+#### 7. Verify
+
+1. Submit valid ingredients and confirm that a recipe is persisted.
+2. Mock non-JSON output and confirm a `FAILED` history record.
+3. Mock missing `steps` or `ingredients` and confirm transaction rollback.
+4. Confirm the response includes recipe ID, history ID, ingredients, and a thumbnail URL.

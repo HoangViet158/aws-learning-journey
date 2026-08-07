@@ -12,11 +12,11 @@ pre: " <b> 2. </b> "
 
 ## 1. Executive Summary
 
-**FoodieRecipe** is a complete web product for a community of cooking enthusiasts. Users can create accounts, publish and manage recipes, upload food images, search by dish or ingredient, and discover recipes from other contributors. The system uses **Next.js** for the Frontend, **NestJS** for the Backend, and a relational database for users, recipes, categories, ingredients, and images.
+**FoodieRecipe** is a complete web product for a community of cooking enthusiasts. Users can create accounts, publish and manage recipes, upload food images, search by dish or ingredient, like and comment on recipes, and discover content from other contributors. The system uses **Next.js** for the Frontend, **NestJS** for the Backend, and a relational database for users, recipes, categories, ingredients, likes, comments, and images.
 
-The product's main differentiator is an AI-assisted image pipeline: images are uploaded to Amazon S3, moderated and recognized with Amazon Rekognition, analyzed by a multimodal model through Amazon Bedrock, promoted to ready-image storage, and delivered through Amazon CloudFront for faster access. The overall architecture uses EC2 to run NestJS in Docker behind Nginx, Amazon RDS for relational data, Secrets Manager for secrets, IAM for permissions, and CloudWatch for logs and metrics.
+The product's main differentiator is an AI-assisted image pipeline: images are uploaded to Amazon S3, moderated and recognized with Amazon Rekognition, analyzed by a multimodal model through Amazon Bedrock, promoted to ready-image storage, and delivered through Amazon CloudFront for faster access. The Next.js build is stored in a private S3 web bucket and published through CloudFront, while EC2 runs NestJS in Docker behind Nginx. Amazon RDS stores relational data, Secrets Manager protects secrets, IAM controls permissions, and CloudWatch collects logs and metrics.
 
-The individual contribution focuses on image upload, analysis, and delivery and their integration with Next.js and NestJS. Building the EC2, Docker, Nginx, RDS, and monitoring environment belongs to the complete product architecture but is **not part of the work performed directly**.
+I implemented the project end to end, from requirements analysis, architecture design, and Next.js/NestJS development to database construction, AI-pipeline integration, and AWS deployment. The work includes IAM, S3, Rekognition, Bedrock, CloudFront, EC2, Docker, Nginx, RDS, Secrets Manager, and CloudWatch configuration; end-to-end testing; security, performance, and cost reviews; and technical documentation.
 
 ## 2. Background and Problem Statement
 
@@ -34,7 +34,7 @@ Traditional recipe platforms often require users to manually enter a dish name, 
 
 ### 2.3. Proposed solution
 
-FoodieRecipe provides the core capabilities of a recipe-sharing platform: account, recipe, ingredient, category, search, and content-administration functions. During recipe publishing, the NestJS Backend issues a pre-signed URL so Next.js can upload directly to Amazon S3. Rekognition performs label detection and moderation; accepted images and high-confidence labels are sent to Bedrock for dish-name, description, ingredient, and tag suggestions. Users review, edit, and confirm suggestions before saving. Images are displayed through CloudFront rather than direct S3 URLs.
+FoodieRecipe provides the core capabilities of a recipe-sharing platform: account, recipe, ingredient, category, search, like, comment, and content-administration functions. During recipe publishing, the NestJS Backend issues a pre-signed URL so Next.js can upload directly to Amazon S3. Rekognition performs label detection and moderation; accepted images and high-confidence labels are sent to Bedrock for dish-name, description, ingredient, and tag suggestions. Users review, edit, and confirm suggestions before saving. Images are displayed through CloudFront rather than direct S3 URLs.
 
 ## 3. Project Objectives
 
@@ -46,7 +46,7 @@ Build FoodieRecipe as a complete recipe-sharing product while developing and eva
 
 - Build an accessible image-upload experience with Next.js.
 - Build image-lifecycle APIs with NestJS.
-- Support account, recipe, ingredient, category, and search management.
+- Support account, recipe, ingredient, category, search, like, and comment management.
 - Store application data in a relational database with clear constraints.
 - Store private images in S3 using consistent object keys and metadata.
 - Use Rekognition for label detection and content moderation.
@@ -63,24 +63,29 @@ Build FoodieRecipe as a complete recipe-sharing product while developing and eva
 - Recipe creation, viewing, editing, and deletion.
 - Ingredient, instruction, serving, cooking-time, and category management.
 - Recipe search, filtering, and pagination.
+- Like or unlike recipes and display the total count and current user's like state.
+- Create, view, and delete comments according to ownership; administrators can moderate inappropriate comments.
 - Management and moderation of user-submitted recipe content.
 - Relational data storage and NestJS APIs.
 - An operational architecture using CloudFront, one S3 image bucket split into `uploads/` and `delivery/` prefixes, EC2, Docker, Nginx, RDS, Secrets Manager, IAM, and CloudWatch.
 - AI-assisted image recognition, moderation, and content suggestions.
 
-### 4.2. Individual contribution scope
+### 4.2. Implemented work scope
 
-- Select, drag-and-drop, preview, and upload food images.
-- Upload directly to S3 with pre-signed URLs.
-- Validate image format, size, metadata, and ownership.
-- Detect food/ingredient labels and moderate images.
-- Suggest dish names, descriptions, ingredients, and tags with AI.
-- Allow users to edit or reject AI suggestions.
-- Display images through CloudFront URLs with suitable caching.
-- Handle states, retries, timeouts, AI errors, and abandoned-image cleanup.
-- Integrate the image pipeline with the existing Next.js Frontend and NestJS Backend.
-
-The individual contribution **does not include** setting up EC2, Docker, Nginx, operating RDS, or configuring the monitoring system. These components remain part of the complete FoodieRecipe product architecture.
+- Analyze requirements, design the complete architecture, and model FoodieRecipe data.
+- Build the Next.js Frontend in `web` and the NestJS Backend in `api`.
+- Implement authentication, authorization, users, recipes, ingredients, categories, search, likes, and comments.
+- Create Amazon RDS for PostgreSQL, design schemas and migrations, and connect it securely to the Backend.
+- Create the S3 image bucket and configure object keys, CORS, lifecycle, encryption, and access control.
+- Implement direct uploads with pre-signed URLs and validate format, size, metadata, and ownership.
+- Integrate Rekognition for label detection, moderation, and normalized results.
+- Integrate Bedrock for structured dish-name, description, ingredient, and tag suggestions.
+- Allow users to review, edit, or reject AI suggestions.
+- Create EC2, attach an IAM role, package NestJS with Docker, and configure Nginx as a reverse proxy.
+- Manage database credentials and sensitive configuration with Secrets Manager.
+- Configure CloudFront with a private S3 origin, signed URLs, and cache policies.
+- Configure CloudWatch Logs, metrics, alarms, and dashboards for observability.
+- Perform end-to-end tests, handle retries/timeouts/failures, review security, optimize cost, and prepare handover documentation.
 
 ### 4.3. Product exclusions
 
@@ -93,8 +98,8 @@ The individual contribution **does not include** setting up EC2, Docker, Nginx, 
 
 | User | Need | Related features |
 | ---- | ---- | ---------------- |
-| Visitor | Discover recipes and view images quickly | Browse, view details, search, and load images through CloudFront |
-| Contributor | Publish recipes with less manual input | Upload images, receive AI suggestions, edit, and confirm content |
+| Member | Discover and interact with recipes | Browse, search, like, comment, and load images through CloudFront |
+| Contributor | Publish recipes with less manual input | Upload images, receive AI suggestions, edit, confirm, and monitor interactions |
 | Administrator | Control image quality and safety | Review flagged images, Rekognition results, and processing states |
 | Development team | Trace and resolve pipeline failures | Inspect image IDs, states, timing, and normalized errors |
 
@@ -106,8 +111,9 @@ The individual contribution **does not include** setting up EC2, Docker, Nginx, 
 
 - **Frontend:** Next.js provides the user interface, calls the NestJS API, and loads images through CloudFront.
 - **Backend:** NestJS runs in Docker on EC2, with Nginx acting as the API reverse proxy.
-- **Data:** Amazon RDS stores users, recipes, ingredients, categories, and image metadata.
+- **Data:** Amazon RDS stores users, recipes, ingredients, categories, likes, comments, and image metadata.
 - **Images:** one S3 image bucket uses `uploads/` for originals and `delivery/` for ready images served through CloudFront.
+- **Web deployment:** the static Next.js export is stored in a private S3 web bucket and delivered through CloudFront over HTTPS.
 - **AI:** NestJS invokes Rekognition for detection/moderation and Bedrock for recipe suggestions.
 - **Security:** an IAM role grants AWS permissions to EC2, while Secrets Manager stores sensitive configuration.
 - **Monitoring:** CloudWatch and CloudWatch Logs collect system and application metrics and logs.
@@ -116,7 +122,7 @@ The individual contribution **does not include** setting up EC2, Docker, Nginx, 
 
 | Step | Flow |
 | :--: | ---- |
-| 1 | The user accesses FoodieRecipe images through CloudFront. |
+| 1 | The user accesses the Next.js website and FoodieRecipe content through CloudFront. |
 | 2 | CloudFront retrieves ready images from the S3 image bucket's `delivery/` prefix and caches them at edge locations. |
 | 3 | The Next.js application calls the NestJS API on EC2 through Nginx. |
 | 4 | Next.js uploads an image directly to the image S3 bucket with a Backend-issued pre-signed URL. |
@@ -174,6 +180,7 @@ IAM and CloudWatch are cross-cutting components: IAM determines which services E
 - The **`uploads/` prefix** receives originals from Next.js through pre-signed URLs and permits Backend processing only.
 - The **`delivery/` prefix** stores approved images for CloudFront delivery.
 - The image bucket remains private with Block Public Access enabled; its bucket policy allows CloudFront to read only `delivery/*`.
+- The S3 web bucket stores the static Next.js export, remains private, and allows only its web distribution through Origin Access Control.
 - Proposed object key: `recipes/{userId}/{recipeId}/{imageId}-{version}.{ext}`.
 - Suitable metadata includes `Content-Type`, owner ID, recipe ID, and checksum.
 - Encryption is enabled; versioning/lifecycle handles temporary, failed, and old image versions.
@@ -199,16 +206,17 @@ IAM and CloudWatch are cross-cutting components: IAM determines which services E
 - The image behavior permits only the required read methods.
 - Versioned/hashed object keys support a long cache TTL.
 - Updating the key minimizes the need for invalidation.
+- The web distribution serves `index.html` and Next.js static assets, while the image distribution serves objects under `delivery/`.
 
 ### 7.7. Product runtime infrastructure
 
 - The S3 image bucket stores originals under `uploads/`; `delivery/` is the private origin path from which CloudFront distributes ready images.
 - Amazon EC2 runs NestJS in Docker, with Nginx serving as the reverse proxy and API entry point.
-- Amazon RDS stores users, recipes, ingredients, categories, and image metadata.
+- Amazon RDS stores users, recipes, ingredients, categories, likes, comments, and image metadata.
 - AWS Secrets Manager supplies secrets without embedding them in source code or the Docker image.
 - The EC2 IAM role provides temporary access to S3, RDS, Bedrock, Rekognition, Secrets Manager, and CloudWatch.
 - CloudWatch collects metrics, while CloudWatch Logs centralizes NestJS, Nginx, and container logs.
-- This is the target product architecture, not infrastructure built directly as part of the individual contribution.
+- The complete infrastructure is deployed, configured, and tested as part of the FoodieRecipe implementation.
 
 ## 8. Non-Functional Requirements
 
@@ -218,6 +226,7 @@ IAM and CloudWatch are cross-cutting components: IAM determines which services E
 - AWS access keys are never stored in the repository or Frontend.
 - Pre-signed URLs are short-lived and bound to specific object keys.
 - The S3 bucket is private; images are read through CloudFront.
+- The S3 web bucket is private; the website is accessed through CloudFront over HTTPS.
 - EC2 exposes only required ports, and Nginx controls requests to NestJS. RDS is private and accepts only Backend connections.
 - The application retrieves credentials from Secrets Manager through an IAM role instead of using static access keys on EC2.
 - Data is transmitted over HTTPS, and secrets are managed outside source code.
@@ -242,18 +251,18 @@ IAM and CloudWatch are cross-cutting components: IAM determines which services E
 
 Planned duration: **eight weeks, from June 22, 2026 to August 14, 2026**.
 
-The following table describes the **individual contribution plan**. Setting up EC2, Docker, Nginx, RDS, Secrets Manager, and CloudWatch belongs to the broader product team's plan and is not counted as individual work during these eight weeks.
+The following table covers the complete eight-week FoodieRecipe implementation, from application development to AWS deployment and operation.
 
 | Week | Work | Milestone |
 | :--: | ---- | --------- |
 | 1 | Study AWS, IAM, Budget Alerts, and image-pipeline design | Initial requirements, scope, and diagram |
-| 2 | Design the S3 bucket, object keys, metadata, and access | Defined image-storage flow |
-| 3 | Build NestJS APIs and pre-signed URL handling | Working upload/confirm/delete operations |
-| 4 | Build the Next.js interface | Working preview, progress, and retry |
+| 2 | Design S3, RDS, Secrets Manager, and the data model | Defined data, storage, and access infrastructure |
+| 3 | Build NestJS APIs, authentication, recipes, likes, comments, and pre-signed URLs | Working Backend and data lifecycle |
+| 4 | Build Next.js and integrate it with NestJS | Working account, recipe, interaction, search, and upload interfaces |
 | 5 | Integrate Rekognition | Working label detection and moderation |
 | 6 | Integrate Bedrock | Structured, validated recipe suggestions |
-| 7 | Configure CloudFront | Private images delivered through the CDN |
-| 8 | Integrate, test, and document | Complete end-to-end pipeline |
+| 7 | Create EC2/RDS, deploy NestJS with Docker/Nginx, and configure CloudFront | API and images served from AWS infrastructure |
+| 8 | Deploy the Frontend, configure CloudWatch, test, and document | Observable end-to-end product |
 
 ## 10. Acceptance Criteria
 
@@ -261,10 +270,14 @@ The following table describes the **individual contribution plan**. Setting up E
 
 - Users can register, sign in, and manage their profiles.
 - Authorized users can create, view, search, edit, and delete recipes.
+- Signed-in users can like or unlike a recipe without creating duplicate records.
+- Users can view and create comments; only the owner or an administrator can delete them according to authorization rules.
 - Recipes support ingredients, instructions, categories, cooking time, servings, and images.
 - Administrators can review and manage inappropriate recipes or images.
 - The Next.js Frontend communicates reliably with NestJS, and relational data remains consistent.
-- The target architecture clearly identifies Next.js, EC2/NestJS, Docker, Nginx, one S3 image bucket with two prefixes, RDS, Bedrock, Rekognition, CloudFront, Secrets Manager, IAM, and CloudWatch.
+- The Next.js website is built, synchronized to the S3 web bucket, and successfully accessed through CloudFront.
+- Next.js and NestJS are deployed, connected through Nginx, and operate reliably on AWS infrastructure.
+- EC2, Docker, Nginx, S3, RDS, Bedrock, Rekognition, CloudFront, Secrets Manager, IAM, and CloudWatch are configured and tested according to the architecture.
 
 ### 10.2. AI image-processing criteria
 
@@ -286,7 +299,7 @@ The complete product has two main cost groups:
 - **Application-platform cost:** EC2, Amazon RDS, the S3 image bucket, CloudFront, Secrets Manager, CloudWatch, network transfer, logs, and backups.
 - **AI image-feature cost:** S3 storage/requests, CloudFront, Rekognition analysis volume, the selected Bedrock model, input/output size, and data transfer.
 
-Before operating the product, the team will enter expected users, recipe count, image volume, and AI invocation frequency into AWS Pricing Calculator. Project tags will separate platform and AI costs for independent evaluation.
+Before operating the product, I enter the expected user count, recipe count, image volume, and AI invocation frequency into AWS Pricing Calculator. Project tags separate platform and AI costs for independent evaluation.
 
 Cost controls include:
 
@@ -304,7 +317,7 @@ Cost controls include:
 
 | Risk | Impact | Mitigation |
 | ---- | ------ | ---------- |
-| EC2, Nginx, or RDS becomes unavailable | The overall application is interrupted | Operations-team health checks, backups, CloudWatch, and recovery procedures |
+| EC2, Nginx, or RDS becomes unavailable | The overall application is interrupted | Tested health checks, backups, CloudWatch, and restart or recovery procedures |
 | AI identifies the wrong dish or ingredients | Incorrect suggestions | Label results as suggestions, expose confidence, and require user confirmation |
 | Rekognition moderation false positive/negative | Valid images blocked or unsafe images accepted | Use conservative thresholds and store `failed` with a reason for manual review |
 | Bedrock returns malformed output | Backend cannot process the result | JSON schema validation, limited retry, and fallback |
@@ -315,14 +328,14 @@ Cost controls include:
 
 ## 13. Expected Outcomes
 
-- A complete FoodieRecipe product supporting account, recipe, ingredient, category, and search management.
-- A target architecture covering the application, data, image storage, AI, and content-delivery layers.
+- A complete FoodieRecipe product supporting account, recipe, ingredient, category, search, like, and comment management.
+- A deployed architecture covering the application, data, image storage, AI, and content-delivery layers.
 - A complete image pipeline with clear responsibilities across Next.js, NestJS, and AWS.
 - Less manual entry for dish names, descriptions, ingredients, and tags.
 - Automated first-pass image screening before content is displayed.
 - Faster image access through CloudFront caching.
 - A foundation for image search, meal suggestions, and personalization.
-- An individual contribution that integrates into the overall product without requiring the contributor to deploy EC2.
+- A fully deployed end-to-end product with monitoring, operational documentation, and troubleshooting procedures.
 
 ## 14. Future Enhancements
 

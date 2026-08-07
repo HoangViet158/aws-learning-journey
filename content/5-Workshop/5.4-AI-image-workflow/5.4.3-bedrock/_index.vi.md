@@ -1,107 +1,97 @@
 ---
-title: "Gợi ý công thức với Amazon Bedrock"
+title: "Tạo và lưu công thức với Amazon Bedrock"
 date: 2026-06-22
 weight: 3
 chapter: false
 pre: " <b> 5.4.3. </b> "
 ---
 
-#### 1. Chọn model
+#### 1. Chọn model và cấp quyền
 
-1. Mở Amazon Bedrock Console trong Region đã chọn.
-2. Xác nhận tài khoản được phép sử dụng một model đa phương thức hỗ trợ ảnh.
-3. Lưu model ID vào `BEDROCK_MODEL_ID`.
-4. Kiểm tra EC2 role có quyền `bedrock:InvokeModel` phù hợp.
+Khai báo model bằng `BEDROCK_MODEL_ID` và xác nhận model có sẵn trong Region. IAM Role của EC2 chỉ cần quyền gọi model được sử dụng:
 
-{{% notice warning %}}
-Khả năng, model ID và Region hỗ trợ có thể thay đổi. Không hard-code model ID vào source code; dùng biến môi trường hoặc cấu hình được quản lý.
-{{% /notice %}}
-
-#### 2. Cài package
-
-```bash
-npm install @aws-sdk/client-bedrock-runtime
-```
-
-#### 3. Chuẩn bị prompt
-
-Prompt cần yêu cầu output JSON rõ ràng:
-
-```text
-Analyze this food image and the Rekognition labels below.
-Return JSON only with this schema:
+```json
 {
-  "dishName": "string",
-  "description": "string",
-  "ingredients": ["string"],
-  "tags": ["string"],
-  "confidence": 0
+  "Effect": "Allow",
+  "Action": "bedrock:InvokeModel",
+  "Resource": "arn:aws:bedrock:<region>::foundation-model/<model-id>"
 }
-Treat every field as a suggestion. Do not invent quantities.
-Labels: <normalized-labels>
 ```
 
-#### 4. Gọi Bedrock Runtime
+Không hard-code model ID trong service để có thể thay đổi model theo môi trường.
 
-Đọc object trong prefix `uploads/` thành bytes, sau đó gửi ảnh và prompt đến model:
+#### 2. Tạo prompt từ nguyên liệu
+
+Bedrock không nhận ảnh trực tiếp trong implementation này. `PromptBuilderService` nhận danh sách nguyên liệu từ Rekognition và tạo prompt text yêu cầu đúng một JSON object:
 
 ```ts
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
+const ingredientList = ingredients
+  .map((item) => `- ${item.name} (${item.confidence}%)`)
+  .join('\n');
 
-const s3 = new S3Client({ region: process.env.AWS_REGION });
-const bedrock = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+return `
+You are a professional chef.
+Detected ingredients:
+${ingredientList}
 
-async function suggestRecipe(key: string, labels: unknown[]) {
-  const object = await s3.send(new GetObjectCommand({
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: key,
-  }));
-  const bytes = await object.Body!.transformToByteArray();
-
-  const result = await bedrock.send(new ConverseCommand({
-    modelId: process.env.BEDROCK_MODEL_ID,
-    messages: [{
-      role: 'user',
-      content: [
-        { image: { format: 'jpeg', source: { bytes } } },
-        { text: buildPrompt(labels) },
-      ],
-    }],
-    inferenceConfig: { maxTokens: 800, temperature: 0.2 },
-  }));
-
-  return result.output?.message?.content?.find(item => item.text)?.text;
-}
+Requirements:
+- Create ONE recipe.
+- Write the recipe in Vietnamese.
+- Return ONLY valid JSON without markdown.
+- Preserve every sourceName from the input.
+`;
 ```
 
-Giá trị `format` phải khớp ảnh thực tế. Chuẩn hóa JPEG/PNG/WebP trước khi gọi model nếu cần.
+Schema output gồm `detectedIngredients`, `title`, `description`, `cookTime`, `difficulty`, `servings`, `ingredients`, `steps`, `tips` và `nutrition`.
 
-#### 5. Validate kết quả
+#### 3. Gọi Bedrock Runtime
 
-1. Loại bỏ code fence nếu model trả về.
-2. Parse JSON trong `try/catch`.
-3. Validate schema bằng thư viện của dự án.
-4. Giới hạn số phần tử và độ dài chuỗi.
-5. Nếu output sai sau số lần retry cho phép, đặt `failed` với `bedrock_invalid_output`.
-6. Lưu model ID, prompt version, latency và kết quả đã chuẩn hóa.
+`BedrockService` dùng Converse API:
 
-{{% notice note %}}
-AI chỉ gợi ý nội dung. Người dùng phải xem lại tên món, mô tả và nguyên liệu trước khi lưu công thức.
-{{% /notice %}}
+```ts
+const command = new ConverseCommand({
+  modelId: config.getOrThrow('BEDROCK_MODEL_ID'),
+  messages: [{
+    role: ConversationRole.USER,
+    content: [{ text: prompt }],
+  }],
+  inferenceConfig: {
+    maxTokens: 1500,
+    temperature: 0.7,
+  },
+});
 
-#### 6. Cache và kiểm soát chi phí
+const response = await client.send(command);
+return response.output?.message?.content?.[0]?.text ?? '';
+```
 
-- Tạo checksum/hash từ ảnh.
-- Tái sử dụng kết quả khi cùng hash, model ID và prompt version.
-- Giới hạn output token, retry và số request đồng thời.
-- Không gọi Bedrock nếu Rekognition moderation thất bại.
+Trong lúc chờ response, giao diện khóa nút gửi để tránh tạo request trùng:
+
+![Bedrock đang tạo công thức](/images/1-Worklog/1.6-Week6/bedrock-processing.png)
+
+#### 4. Validate và lưu transaction
+
+Backend parse JSON, kiểm tra các trường bắt buộc và map nguyên liệu được nhận diện sang tên tiếng Việt. Sau đó `RecipePersistenceService` lưu recipe, ingredients và steps trong một transaction. AI history ghi model, prompt, labels, recipe ID và trạng thái.
+
+Nếu parse, validate hoặc transaction thất bại, history được ghi `FAILED` và API trả lỗi chuẩn hóa; không lưu một công thức dở dang.
+
+#### 5. Kết quả
+
+![Kết quả công thức được Bedrock tạo](/images/1-Worklog/1.6-Week6/bedrock-recipe-result.png)
+
+![Nguyên liệu và các bước thực hiện đã được lưu](/images/1-Worklog/1.6-Week6/generated-recipe-details.png)
+
+#### 6. Kiểm soát chất lượng và chi phí
+
+- Không gọi Bedrock khi danh sách nguyên liệu rỗng.
+- Giữ prompt ngắn, giới hạn `maxTokens` và số lần retry.
+- Validate JSON trước khi mở transaction database.
+- Log model ID, thời gian xử lý và history ID; không log ảnh/base64 hoặc secret.
+- Theo dõi số request thành công/thất bại để phát hiện prompt hoặc model không ổn định.
 
 #### 7. Kiểm tra
 
-- Output hợp lệ đúng JSON schema.
-- Output có markdown/code fence vẫn được parse an toàn.
-- Timeout hoặc throttling được retry có giới hạn.
-- Không hiển thị kết quả AI như dữ liệu đã được xác nhận.
-
-Tài liệu tham khảo: [Amazon Bedrock Runtime Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html).
+1. Gửi danh sách nguyên liệu hợp lệ và xác nhận recipe được lưu.
+2. Mock output không phải JSON và xác nhận history `FAILED`.
+3. Mock thiếu `steps` hoặc `ingredients` và xác nhận transaction rollback.
+4. Kiểm tra response trả recipe ID, history ID, ingredients và thumbnail URL.

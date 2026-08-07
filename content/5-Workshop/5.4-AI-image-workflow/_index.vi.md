@@ -1,25 +1,25 @@
 ---
-title: "Xây dựng workflow xử lý ảnh AI"
+title: "Workflow ảnh AI"
 date: 2026-06-22
 weight: 4
 chapter: false
 pre: " <b> 5.4. </b> "
 ---
 
-Phần này xây dựng luồng chính của FoodieRecipe từ lúc người dùng chọn ảnh đến khi ảnh được phân phối qua CloudFront.
+Phần này triển khai đúng workflow **Next.js → NestJS → S3 → Rekognition → Bedrock → RDS → CloudFront** đang có trong FoodieRecipe.
 
 #### Nội dung
 
-1. [Upload ảnh bằng pre-signed URL](5.4.1-upload-flow/)
-2. [Nhận diện và kiểm duyệt với Rekognition](5.4.2-rekognition/)
-3. [Gợi ý công thức với Amazon Bedrock](5.4.3-bedrock/)
-4. [Phân phối ảnh với Amazon CloudFront](5.4.4-cloudfront/)
+1. [Upload và tối ưu ảnh qua NestJS](5.4.1-upload-flow/)
+2. [Nhận diện nguyên liệu với Rekognition](5.4.2-rekognition/)
+3. [Tạo và lưu công thức với Bedrock](5.4.3-bedrock/)
+4. [Phân phối ảnh private qua CloudFront](5.4.4-cloudfront/)
 
 #### Quy tắc workflow
 
-- Chỉ dùng `pending`, `processing`, `completed`, `failed`.
-- Mỗi ảnh có một `imageId` và object key duy nhất.
-- Rekognition chạy trước Bedrock.
-- Bedrock output phải được validate và người dùng xác nhận.
-- Chỉ ảnh `completed` mới được đưa vào prefix `delivery/`.
-- Không public bất kỳ S3 bucket nào.
+- Frontend gửi file multipart; Backend chịu trách nhiệm validate, tối ưu và upload S3.
+- Rekognition chỉ gọi `DetectLabels`; không ghi nhận moderation khi chưa triển khai API đó.
+- Chỉ nhãn có confidence từ 80% và không nằm trong danh sách nhãn chung mới trở thành nguyên liệu.
+- Bedrock nhận prompt text, output phải parse được thành JSON theo schema công thức.
+- Lịch sử AI hỗ trợ `PENDING`, `PROCESSING`, `SUCCESS`, `FAILED`; không tạo thêm trạng thái ảnh không tồn tại trong schema.
+- S3 bucket luôn private; CloudFront signed URL hoặc S3 pre-signed GET URL cung cấp quyền đọc có thời hạn.

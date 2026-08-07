@@ -6,102 +6,154 @@ chapter: false
 pre: " <b> 5.3.2. </b> "
 ---
 
-#### 1. Create Amazon RDS
+#### 1. VPC network architecture
 
-1. Open **Amazon RDS → Create database**.
-2. Select PostgreSQL or the engine used by the project.
-3. Select a workshop-appropriate template.
-4. Set the database name to `foodierecipe`.
-5. Set **Public access: No**.
-6. Allow the database port only from the EC2 Security Group.
-7. Enable encryption and automated backup as needed.
+Open **Amazon VPC → Your VPCs → Resource map** to inspect the VPC, subnets, route table, and Internet Gateway.
 
-{{% notice warning %}}
-Never open the database port to `0.0.0.0/0`. Never commit an RDS password in a tracked `.env` file.
+![Resource map of the VPC used for FoodieRecipe](/images/5-Workshop/5.3-Core-infrastructure/5.3.2-backend-data/vpc-resource-map.png)
+
+- EC2/Nginx resides in a public subnet and uses an Elastic IP.
+- RDS uses a DB subnet group spanning at least two Availability Zones.
+- RDS has **Public access: No**.
+- `FoodieRecipeRdsSg` accepts PostgreSQL `5432` only from `FoodieRecipeEc2Sg`.
+- Ports `3000` and `3001` bind only to loopback; users enter through Nginx on `80/443`.
+
+{{% notice note %}}
+The resource map shows relationships only. Inspect route tables and Security Groups to confirm public/private boundaries.
 {{% /notice %}}
 
-#### 2. Prepare the image table
+#### 2. Create Amazon RDS for PostgreSQL
 
-Minimum schema:
+1. Create a DB subnet group from the selected subnets.
+2. Select PostgreSQL, identifier `database-foodie-recipe`, and a workshop-appropriate size.
+3. Enable encryption, automated backups, and **Public access: No**.
+4. Attach `FoodieRecipeRdsSg`.
+5. Store the connection string in `prod/foodie-recipe/db`.
 
-```sql
-CREATE TABLE recipe_images (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL,
-  recipe_id UUID,
-  object_key VARCHAR(512) NOT NULL UNIQUE,
-  status VARCHAR(20) NOT NULL,
-  error_code VARCHAR(80),
-  ai_result JSONB,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-```
+![FoodieRecipe RDS PostgreSQL in the Available state](/images/1-Worklog/1.2-Week2/rds-database-created.png)
 
-The `status` value is limited to `pending`, `processing`, `completed`, and `failed`.
+Never expose `5432` to `0.0.0.0/0` or commit the database password.
 
-#### 3. Prepare EC2
+#### 3. Run Prisma migrations
 
-1. Create a Linux EC2 instance suitable for the test environment.
-2. Attach `FoodieRecipeBackendRole`.
-3. Allow administration only from a trusted source and expose the API through Nginx.
-4. Install Docker, the Docker Compose plugin, Nginx, and the CloudWatch Agent.
-
-#### 4. Run NestJS with Docker
-
-Reference Dockerfile:
-
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:20-alpine
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app/package*.json ./
-RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-USER node
-CMD ["node", "dist/main.js"]
-```
-
-Start and verify:
+The current schema includes `users`, `recipes`, `recipe_ingredients`, `recipe_steps`, `recipe_images`, `recipe_likes`, `comments`, and `ai_generation_history`. AI history supports `PENDING`, `PROCESSING`, `SUCCESS`, and `FAILED`.
 
 ```bash
 cd api
-docker build -t foodierecipe-backend .
-docker run -d --name foodierecipe-api --restart unless-stopped -p 3001:3001 foodierecipe-backend
-curl http://localhost:3001/health
+pnpm prisma generate
+pnpm prisma migrate deploy
+pnpm prisma studio
 ```
 
-#### 5. Configure Nginx
+![Tables after Prisma migration](/images/1-Worklog/1.3-Week3/prisma-migration-result.png)
+
+`RecipeImage` stores the URL, image type, and display order. AI status belongs to `AIGenerationHistory`, not the image table.
+
+#### 4. Prepare EC2
+
+1. Create a Linux EC2 instance in the public subnet and attach an Elastic IP.
+2. Attach the Backend IAM role and `FoodieRecipeEc2Sg`.
+3. Allow SSH `22` only from the administrator IP and expose `80/443` to users.
+
+![FoodieRecipe EC2 instance running](/images/1-Worklog/1.7-Week7/ec2-instance-running.png)
+
+![IAM role and Security Groups attached to EC2](/images/1-Worklog/1.7-Week7/ec2-iam-role.png)
+
+```bash
+aws sts get-caller-identity
+sudo dnf update -y
+sudo dnf install -y git docker nginx jq
+sudo systemctl enable --now docker nginx
+sudo usermod -aG docker ec2-user
+```
+
+Sign out and reconnect for Docker group membership to take effect.
+
+#### 5. Build and run NestJS
+
+The `api` Dockerfile uses Node.js 22, pnpm, Prisma Client, and a NestJS build. Its entrypoint runs `prisma migrate deploy` before `node dist/main.js`.
+
+```bash
+git clone https://github.com/<owner>/<repository>.git foodierecipe
+cd foodierecipe/api
+docker build -t foodierecipe-api:production .
+```
+
+Do not create `.env.production`. The deployment script retrieves secrets with temporary EC2 role credentials and injects them into the container:
+
+```bash
+REGION=ap-southeast-1
+
+DB_SECRET=$(aws secretsmanager get-secret-value \
+  --region "$REGION" \
+  --secret-id prod/foodie-recipe/db \
+  --query SecretString --output text)
+
+APP_SECRET=$(aws secretsmanager get-secret-value \
+  --region "$REGION" \
+  --secret-id prod/foodie-recipe/app \
+  --query SecretString --output text)
+
+DATABASE_URL=$(jq -r '.DATABASE_URL' <<< "$DB_SECRET")
+JWT_SECRET=$(jq -r '.JWT_SECRET' <<< "$APP_SECRET")
+
+docker run -d \
+  --name foodierecipe-api \
+  --restart unless-stopped \
+  -p 127.0.0.1:3001:3001 \
+  -e "DATABASE_URL=$DATABASE_URL" \
+  -e PORT=3001 \
+  -e NODE_ENV=production \
+  -e COOKIE_SECURE=true \
+  -e "JWT_SECRET=$JWT_SECRET" \
+  -e AWS_REGION="$REGION" \
+  -e AWS_BUCKET_NAME=my-foodie-ai-images \
+  -e BEDROCK_MODEL_ID='<model-id>' \
+  foodierecipe-api:production
+
+unset DB_SECRET APP_SECRET DATABASE_URL JWT_SECRET
+```
+
+![PostgreSQL container running in the local environment](/images/1-Worklog/1.3-Week3/docker-postgres-running.png)
+
+#### 6. Configure Nginx
 
 ```nginx
 server {
     listen 80;
+    server_name myapps.io.vn;
 
     location /api/ {
-        proxy_pass http://127.0.0.1:3001/;
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        client_max_body_size 2m;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-Reload Nginx and call `/api/health` to verify the reverse proxy.
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+curl http://127.0.0.1:3001/api
+curl -I https://myapps.io.vn
+```
 
-#### 6. Read the secret in NestJS
+![Health endpoint returning Hello World](/images/1-Worklog/1.3-Week3/api-hello-world.png)
 
-The Backend uses the EC2 IAM role to call Secrets Manager during startup. No static access key is stored on the instance.
+#### 7. Verify the API and database
 
-Expected result:
+Swagger verifies the API contract:
 
-- The NestJS container runs behind Nginx.
-- NestJS retrieves the database secret.
-- The RDS connection succeeds.
-- The health endpoint exposes no sensitive data.
+![FoodieRecipe Swagger API](/images/1-Worklog/1.3-Week3/swagger-overview.png)
+
+![Successful sign-in through Swagger](/images/1-Worklog/1.3-Week3/swagger-login-success.png)
+
+Confirm that migrations complete, registration/sign-in works, recipe creation writes to RDS, and the container restarts after an EC2 reboot.

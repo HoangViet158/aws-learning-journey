@@ -12,11 +12,11 @@ pre: " <b> 2. </b> "
 
 ## 1. Tóm tắt đề xuất
 
-**FoodieRecipe** là một sản phẩm web hoàn chỉnh dành cho cộng đồng quan tâm đến nấu ăn. Người dùng có thể đăng ký tài khoản, tạo và quản lý công thức, đăng ảnh món ăn, tìm kiếm theo tên món hoặc nguyên liệu và khám phá công thức từ những người dùng khác. Hệ thống sử dụng **Next.js** cho Frontend, **NestJS** cho Backend và cơ sở dữ liệu quan hệ để quản lý người dùng, công thức, danh mục, nguyên liệu và hình ảnh.
+**FoodieRecipe** là một sản phẩm web hoàn chỉnh dành cho cộng đồng quan tâm đến nấu ăn. Người dùng có thể đăng ký tài khoản, tạo và quản lý công thức, đăng ảnh món ăn, tìm kiếm theo tên món hoặc nguyên liệu, thích và bình luận về công thức, đồng thời khám phá nội dung từ những người dùng khác. Hệ thống sử dụng **Next.js** cho Frontend, **NestJS** cho Backend và cơ sở dữ liệu quan hệ để quản lý người dùng, công thức, danh mục, nguyên liệu, lượt thích, bình luận và hình ảnh.
 
-Điểm nổi bật của sản phẩm là pipeline xử lý ảnh tích hợp AI: ảnh được upload lên Amazon S3, kiểm duyệt và nhận diện bằng Amazon Rekognition, phân tích bằng mô hình đa phương thức qua Amazon Bedrock, sau đó đưa sang vùng lưu trữ ảnh sẵn sàng và phân phối qua Amazon CloudFront để cải thiện tốc độ truy cập. Kiến trúc tổng thể sử dụng EC2 chạy NestJS trong Docker sau Nginx, Amazon RDS lưu dữ liệu quan hệ, Secrets Manager quản lý bí mật, IAM kiểm soát quyền và CloudWatch thu thập log, metrics.
+Điểm nổi bật của sản phẩm là pipeline xử lý ảnh tích hợp AI: ảnh được upload lên Amazon S3, kiểm duyệt và nhận diện bằng Amazon Rekognition, phân tích bằng mô hình đa phương thức qua Amazon Bedrock, sau đó đưa sang vùng lưu trữ ảnh sẵn sàng và phân phối qua Amazon CloudFront để cải thiện tốc độ truy cập. Bản build Next.js được lưu trong S3 web bucket và phát hành qua CloudFront; NestJS chạy trong Docker trên EC2 sau Nginx, Amazon RDS lưu dữ liệu quan hệ, Secrets Manager quản lý bí mật, IAM kiểm soát quyền và CloudWatch thu thập log, metrics.
 
-Trong phạm vi công việc cá nhân, phần được thực hiện tập trung vào upload, phân tích và phân phối ảnh, cùng việc tích hợp các chức năng này với Next.js và NestJS. Việc xây dựng môi trường EC2, Docker, Nginx, RDS và hệ thống giám sát thuộc kiến trúc sản phẩm tổng thể nhưng **không nằm trong phần công việc trực tiếp thực hiện**.
+Toàn bộ dự án được em thực hiện xuyên suốt từ phân tích yêu cầu, thiết kế kiến trúc, phát triển Frontend Next.js và Backend NestJS đến xây dựng cơ sở dữ liệu, tích hợp pipeline AI và triển khai hệ thống trên AWS. Công việc bao gồm cấu hình IAM, S3, Rekognition, Bedrock, CloudFront, EC2, Docker, Nginx, RDS, Secrets Manager và CloudWatch; kiểm thử end-to-end; rà soát bảo mật, hiệu năng, chi phí; và hoàn thiện tài liệu kỹ thuật.
 
 ## 2. Bối cảnh và vấn đề
 
@@ -34,7 +34,7 @@ Các nền tảng công thức truyền thống thường yêu cầu người d�
 
 ### 2.3. Giải pháp đề xuất
 
-FoodieRecipe cung cấp đầy đủ chức năng cốt lõi của một nền tảng chia sẻ công thức: quản lý tài khoản, công thức, nguyên liệu, danh mục, tìm kiếm và quản trị nội dung. Trong luồng đăng công thức, Backend NestJS cấp pre-signed URL để Next.js upload ảnh trực tiếp lên Amazon S3. Rekognition nhận diện nhãn và kiểm duyệt; ảnh hợp lệ cùng các nhãn có độ tin cậy cao được chuyển cho Bedrock để gợi ý tên món, mô tả, nguyên liệu và tag. Người dùng xem lại, chỉnh sửa và xác nhận trước khi lưu. Ảnh được hiển thị thông qua CloudFront thay vì URL S3 trực tiếp.
+FoodieRecipe cung cấp đầy đủ chức năng cốt lõi của một nền tảng chia sẻ công thức: quản lý tài khoản, công thức, nguyên liệu, danh mục, tìm kiếm, lượt thích, bình luận và quản trị nội dung. Trong luồng đăng công thức, Backend NestJS cấp pre-signed URL để Next.js upload ảnh trực tiếp lên Amazon S3. Rekognition nhận diện nhãn và kiểm duyệt; ảnh hợp lệ cùng các nhãn có độ tin cậy cao được chuyển cho Bedrock để gợi ý tên món, mô tả, nguyên liệu và tag. Người dùng xem lại, chỉnh sửa và xác nhận trước khi lưu. Ảnh được hiển thị thông qua CloudFront thay vì URL S3 trực tiếp.
 
 ## 3. Mục tiêu dự án
 
@@ -46,7 +46,7 @@ Xây dựng FoodieRecipe thành một sản phẩm chia sẻ công thức hoàn 
 
 - Xây dựng giao diện upload ảnh dễ sử dụng bằng Next.js.
 - Xây dựng API quản lý vòng đời ảnh bằng NestJS.
-- Hỗ trợ quản lý tài khoản, công thức, nguyên liệu, danh mục và tìm kiếm.
+- Hỗ trợ quản lý tài khoản, công thức, nguyên liệu, danh mục, tìm kiếm, lượt thích và bình luận.
 - Lưu dữ liệu nghiệp vụ trong cơ sở dữ liệu quan hệ với ràng buộc rõ ràng.
 - Lưu ảnh riêng tư trên S3 với object key và metadata nhất quán.
 - Dùng Rekognition nhận diện label và kiểm duyệt nội dung.
@@ -63,24 +63,29 @@ Xây dựng FoodieRecipe thành một sản phẩm chia sẻ công thức hoàn 
 - Tạo, xem, chỉnh sửa và xóa công thức nấu ăn.
 - Quản lý nguyên liệu, bước thực hiện, khẩu phần, thời gian nấu và danh mục.
 - Tìm kiếm, lọc và phân trang công thức.
+- Thích hoặc bỏ thích công thức; hiển thị tổng lượt thích và trạng thái thích của người dùng hiện tại.
+- Tạo, xem và xóa bình luận theo quyền sở hữu; quản trị viên có thể kiểm duyệt bình luận không phù hợp.
 - Quản lý và kiểm duyệt nội dung công thức do người dùng đăng tải.
 - Lưu dữ liệu quan hệ và cung cấp API qua NestJS.
 - Kiến trúc vận hành gồm CloudFront, một S3 image bucket tách prefix `uploads/` và `delivery/`, EC2, Docker, Nginx, RDS, Secrets Manager, IAM và CloudWatch.
 - Tích hợp AI để nhận diện, kiểm duyệt và gợi ý nội dung từ ảnh.
 
-### 4.2. Phạm vi công việc cá nhân
+### 4.2. Phạm vi công việc thực hiện
 
-- Chọn, kéo thả, xem trước và upload ảnh món ăn.
-- Upload trực tiếp lên S3 bằng pre-signed URL.
-- Kiểm tra định dạng, dung lượng, metadata và quyền sở hữu ảnh.
-- Nhận diện nhãn món ăn/nguyên liệu và kiểm duyệt ảnh.
-- Gợi ý tên món, mô tả, nguyên liệu và tag bằng AI.
-- Cho phép người dùng chỉnh sửa hoặc từ chối nội dung AI gợi ý.
-- Hiển thị ảnh bằng CloudFront URL và áp dụng cache phù hợp.
-- Xử lý trạng thái, retry, timeout, lỗi AI và dọn ảnh không còn sử dụng.
-- Tích hợp pipeline ảnh với Frontend Next.js và Backend NestJS hiện có.
-
-Phần công việc cá nhân **không bao gồm** thiết lập EC2, Docker, Nginx, vận hành RDS hoặc cấu hình hệ thống giám sát. Các thành phần này vẫn thuộc kiến trúc và phạm vi của sản phẩm FoodieRecipe hoàn chỉnh.
+- Phân tích yêu cầu, thiết kế kiến trúc tổng thể và mô hình dữ liệu FoodieRecipe.
+- Xây dựng Frontend Next.js trong `web` và Backend NestJS trong `api`.
+- Xây dựng xác thực, phân quyền, quản lý người dùng, công thức, nguyên liệu, danh mục, tìm kiếm, lượt thích và bình luận.
+- Tạo Amazon RDS for PostgreSQL, thiết kế schema, migration và kết nối an toàn từ Backend.
+- Tạo S3 image bucket; cấu hình object key, CORS, lifecycle, encryption và quyền truy cập.
+- Xây dựng upload trực tiếp bằng pre-signed URL; kiểm tra định dạng, dung lượng, metadata và quyền sở hữu ảnh.
+- Tích hợp Rekognition để nhận diện nhãn, kiểm duyệt ảnh và chuẩn hóa kết quả.
+- Tích hợp Bedrock để gợi ý tên món, mô tả, nguyên liệu và tag có cấu trúc.
+- Cho phép người dùng xem lại, chỉnh sửa hoặc từ chối nội dung AI gợi ý.
+- Tạo EC2, gắn IAM Role, đóng gói NestJS bằng Docker và cấu hình Nginx làm reverse proxy.
+- Quản lý database credential và thông tin nhạy cảm bằng Secrets Manager.
+- Cấu hình CloudFront với S3 private origin, signed URL và cache policy để phân phối ảnh.
+- Cấu hình CloudWatch Logs, metrics, alarm và dashboard để theo dõi ứng dụng.
+- Kiểm thử end-to-end, xử lý retry/timeout/lỗi, rà soát bảo mật, tối ưu chi phí và viết tài liệu bàn giao.
 
 ### 4.3. Ngoài phạm vi sản phẩm
 
@@ -93,8 +98,8 @@ Phần công việc cá nhân **không bao gồm** thiết lập EC2, Docker, Ng
 
 | Đối tượng | Nhu cầu | Chức năng liên quan |
 | --------- | ------- | ------------------- |
-| Người xem | Khám phá công thức và xem ảnh nhanh | Xem danh sách, chi tiết, tìm kiếm và tải ảnh qua CloudFront |
-| Người đóng góp | Đăng công thức với ít thao tác nhập liệu | Upload ảnh, nhận gợi ý AI, chỉnh sửa và xác nhận nội dung |
+| Người dùng | Khám phá và tương tác với công thức | Xem, tìm kiếm, thích, bình luận và tải ảnh qua CloudFront |
+| Người đóng góp | Đăng công thức với ít thao tác nhập liệu | Upload ảnh, nhận gợi ý AI, chỉnh sửa, xác nhận và theo dõi tương tác |
 | Người quản trị | Kiểm soát chất lượng và nội dung ảnh | Xem ảnh cần review, kết quả Rekognition và trạng thái xử lý |
 | Nhóm phát triển | Theo dõi và xử lý lỗi pipeline | Kiểm tra image ID, trạng thái, thời gian xử lý và lỗi chuẩn hóa |
 
@@ -106,8 +111,9 @@ Phần công việc cá nhân **không bao gồm** thiết lập EC2, Docker, Ng
 
 - **Frontend:** Next.js cung cấp giao diện người dùng, gọi NestJS API và tải ảnh thông qua CloudFront.
 - **Backend:** NestJS chạy trong Docker trên EC2; Nginx làm reverse proxy cho API.
-- **Dữ liệu:** Amazon RDS lưu dữ liệu người dùng, công thức, nguyên liệu, danh mục và metadata ảnh.
+- **Dữ liệu:** Amazon RDS lưu dữ liệu người dùng, công thức, nguyên liệu, danh mục, lượt thích, bình luận và metadata ảnh.
 - **Ảnh:** một S3 image bucket dùng prefix `uploads/` cho ảnh gốc và `delivery/` cho ảnh đã sẵn sàng làm origin cho CloudFront.
+- **Triển khai web:** static export Next.js nằm trong private S3 web bucket và được CloudFront phân phối qua HTTPS.
 - **AI:** NestJS gọi Rekognition để nhận diện/kiểm duyệt và Bedrock để gợi ý nội dung công thức.
 - **Bảo mật:** IAM role cấp quyền AWS cho EC2; Secrets Manager lưu thông tin nhạy cảm.
 - **Giám sát:** CloudWatch và CloudWatch Logs thu thập metrics, log hệ thống và log ứng dụng.
@@ -116,7 +122,7 @@ Phần công việc cá nhân **không bao gồm** thiết lập EC2, Docker, Ng
 
 | Bước | Luồng xử lý |
 | :--: | ----------- |
-| 1 | Người dùng truy cập ảnh FoodieRecipe thông qua CloudFront. |
+| 1 | Người dùng truy cập website Next.js và nội dung FoodieRecipe thông qua CloudFront. |
 | 2 | CloudFront lấy ảnh đã sẵn sàng từ prefix `delivery/` của S3 image bucket và cache tại edge location. |
 | 3 | Ứng dụng Next.js gọi API NestJS chạy trên EC2 thông qua Nginx. |
 | 4 | Next.js upload ảnh trực tiếp lên S3 image bucket bằng pre-signed URL do Backend cấp. |
@@ -174,6 +180,7 @@ IAM và CloudWatch là các thành phần xuyên suốt: IAM quyết định EC2
 - Prefix **`uploads/`** nhận ảnh gốc từ Next.js qua pre-signed URL và chỉ cho Backend xử lý.
 - Prefix **`delivery/`** lưu ảnh đã được xác nhận để CloudFront phân phối.
 - Image bucket giữ trạng thái private và bật Block Public Access; bucket policy chỉ cho CloudFront đọc `delivery/*`.
+- S3 web bucket lưu static export Next.js, giữ private và chỉ cho web distribution đọc bằng Origin Access Control.
 - Object key đề xuất: `recipes/{userId}/{recipeId}/{imageId}-{version}.{ext}`.
 - Lưu `Content-Type`, owner ID, recipe ID và checksum trong metadata phù hợp.
 - Bật encryption; áp dụng versioning/lifecycle để dọn ảnh tạm, ảnh lỗi và version cũ.
@@ -199,16 +206,17 @@ IAM và CloudWatch là các thành phần xuyên suốt: IAM quyết định EC2
 - Chỉ cho phép method cần thiết để đọc ảnh.
 - Dùng object key có version/hash để tận dụng TTL dài.
 - Hạn chế invalidation bằng cách thay đổi key khi ảnh được cập nhật.
+- Web distribution phục vụ `index.html` và static asset Next.js; image distribution phục vụ ảnh trong `delivery/`.
 
 ### 7.7. Hạ tầng vận hành sản phẩm
 
 - S3 image bucket lưu ảnh gốc dưới `uploads/`; prefix `delivery/` là private origin path để CloudFront phân phối ảnh đã sẵn sàng.
 - Amazon EC2 chạy NestJS trong Docker; Nginx làm reverse proxy và điểm vào API.
-- Amazon RDS lưu người dùng, công thức, nguyên liệu, danh mục và metadata hình ảnh.
+- Amazon RDS lưu người dùng, công thức, nguyên liệu, danh mục, lượt thích, bình luận và metadata hình ảnh.
 - AWS Secrets Manager cung cấp bí mật cho ứng dụng mà không đưa chúng vào source code hoặc image Docker.
 - IAM role gắn với EC2 cung cấp quyền tạm thời để truy cập S3, RDS, Bedrock, Rekognition, Secrets Manager và CloudWatch.
 - CloudWatch thu thập metrics; CloudWatch Logs tập trung log của NestJS, Nginx và container.
-- Đây là kiến trúc mục tiêu của sản phẩm, không phải phần hạ tầng do cá nhân trực tiếp thực hiện.
+- Toàn bộ hạ tầng trên được triển khai, cấu hình và kiểm thử trong quá trình thực hiện FoodieRecipe.
 
 ## 8. Yêu cầu phi chức năng
 
@@ -218,6 +226,7 @@ IAM và CloudWatch là các thành phần xuyên suốt: IAM quyết định EC2
 - Không lưu AWS access key trong repository hoặc Frontend.
 - Pre-signed URL có thời hạn ngắn và gắn với object key cụ thể.
 - S3 bucket không public; ảnh được đọc qua CloudFront.
+- S3 web bucket không public; website được truy cập qua CloudFront HTTPS.
 - EC2 chỉ mở các cổng cần thiết; Nginx kiểm soát request đến NestJS. RDS không public và chỉ nhận kết nối từ Backend.
 - Ứng dụng lấy credential từ Secrets Manager bằng IAM role, không dùng access key cố định trên EC2.
 - Dữ liệu truyền qua HTTPS và thông tin bí mật được quản lý ngoài mã nguồn.
@@ -242,18 +251,18 @@ IAM và CloudWatch là các thành phần xuyên suốt: IAM quyết định EC2
 
 Thời gian dự kiến: **8 tuần, từ 22/06/2026 đến 14/08/2026**.
 
-Bảng dưới đây mô tả kế hoạch cho **phần công việc cá nhân**. Việc thiết lập EC2, Docker, Nginx, RDS, Secrets Manager và CloudWatch thuộc kế hoạch tổng thể của nhóm sản phẩm và không được tính là đầu việc cá nhân trong 8 tuần này.
+Bảng dưới đây mô tả kế hoạch thực hiện toàn bộ FoodieRecipe trong tám tuần, từ phát triển ứng dụng đến triển khai và vận hành trên AWS.
 
 | Tuần | Nội dung | Mốc hoàn thành |
 | :--: | -------- | -------------- |
 | 1 | Tìm hiểu AWS, IAM, Budget Alert và thiết kế pipeline ảnh | Yêu cầu, phạm vi và sơ đồ ban đầu |
-| 2 | Thiết kế S3 bucket, object key, metadata và quyền truy cập | Luồng lưu trữ ảnh được xác định |
-| 3 | Xây API NestJS và pre-signed URL | Upload/confirm/delete hoạt động |
-| 4 | Xây giao diện Next.js | Preview, upload progress và retry hoạt động |
+| 2 | Thiết kế S3, RDS, Secrets Manager và mô hình dữ liệu | Hạ tầng dữ liệu, lưu trữ và quyền truy cập được xác định |
+| 3 | Xây NestJS API, xác thực, công thức, lượt thích, bình luận và pre-signed URL | Backend cùng vòng đời dữ liệu hoạt động |
+| 4 | Xây Next.js và tích hợp với NestJS | Giao diện tài khoản, công thức, tương tác, tìm kiếm và upload hoạt động |
 | 5 | Tích hợp Rekognition | Label detection và moderation hoạt động |
 | 6 | Tích hợp Bedrock | Gợi ý công thức có cấu trúc và validation |
-| 7 | Cấu hình CloudFront | Ảnh private được phân phối qua CDN |
-| 8 | Tích hợp, kiểm thử và tài liệu | Pipeline end-to-end hoàn chỉnh |
+| 7 | Tạo EC2/RDS, deploy NestJS bằng Docker/Nginx và cấu hình CloudFront | API và ảnh được cung cấp từ hạ tầng AWS |
+| 8 | Deploy Frontend, cấu hình CloudWatch, kiểm thử và tài liệu | Sản phẩm end-to-end hoạt động và có thể giám sát |
 
 ## 10. Tiêu chí nghiệm thu
 
@@ -261,10 +270,14 @@ Bảng dưới đây mô tả kế hoạch cho **phần công việc cá nhân**
 
 - Người dùng có thể đăng ký, đăng nhập và quản lý hồ sơ.
 - Người dùng có thể tạo, xem, tìm kiếm, chỉnh sửa và xóa công thức theo quyền.
+- Người dùng đã đăng nhập có thể thích hoặc bỏ thích một công thức mà không tạo bản ghi trùng lặp.
+- Người dùng có thể xem và tạo bình luận; chỉ chủ sở hữu hoặc quản trị viên được xóa bình luận theo quyền.
 - Công thức hỗ trợ nguyên liệu, bước nấu, danh mục, thời gian, khẩu phần và ảnh.
 - Quản trị viên có thể kiểm tra và quản lý công thức hoặc hình ảnh không phù hợp.
 - Frontend Next.js giao tiếp ổn định với Backend NestJS và dữ liệu quan hệ được lưu nhất quán.
-- Kiến trúc mục tiêu xác định rõ Next.js, EC2/NestJS, Docker, Nginx, một S3 image bucket với hai prefix, RDS, Bedrock, Rekognition, CloudFront, Secrets Manager, IAM và CloudWatch.
+- Website Next.js được build, đồng bộ lên S3 web bucket và truy cập thành công qua CloudFront.
+- Next.js và NestJS được triển khai, kết nối qua Nginx và hoạt động ổn định trên hạ tầng AWS.
+- EC2, Docker, Nginx, S3, RDS, Bedrock, Rekognition, CloudFront, Secrets Manager, IAM và CloudWatch được cấu hình và kiểm thử theo kiến trúc.
 
 ### 10.2. Tiêu chí cho phần xử lý ảnh AI
 
@@ -286,7 +299,7 @@ Chi phí sản phẩm hoàn chỉnh gồm hai nhóm chính:
 - **Chi phí nền tảng ứng dụng:** EC2, Amazon RDS, S3 image bucket, CloudFront, Secrets Manager, CloudWatch, lưu lượng mạng, log và bản sao lưu.
 - **Chi phí tính năng ảnh AI:** dung lượng/request S3, CloudFront, số ảnh phân tích bằng Rekognition, model Bedrock, kích thước input/output và truyền dữ liệu.
 
-Trước khi đưa sản phẩm vào vận hành, nhóm sẽ nhập số người dùng, số công thức, dung lượng ảnh và tần suất gọi AI dự kiến vào AWS Pricing Calculator. Chi phí sẽ được tách theo tag thành chi phí nền tảng và chi phí AI để đánh giá độc lập.
+Trước khi đưa sản phẩm vào vận hành, em nhập số người dùng, số công thức, dung lượng ảnh và tần suất gọi AI dự kiến vào AWS Pricing Calculator. Chi phí được tách theo tag thành chi phí nền tảng và chi phí AI để đánh giá độc lập.
 
 Các biện pháp kiểm soát:
 
@@ -304,7 +317,7 @@ Các biện pháp kiểm soát:
 
 | Rủi ro | Ảnh hưởng | Giảm thiểu |
 | ------ | --------- | ---------- |
-| EC2, Nginx hoặc RDS không khả dụng | Ứng dụng tổng thể bị gián đoạn | Health check, backup, CloudWatch và quy trình khôi phục của nhóm vận hành |
+| EC2, Nginx hoặc RDS không khả dụng | Ứng dụng tổng thể bị gián đoạn | Health check, backup, CloudWatch và quy trình khởi động hoặc khôi phục đã kiểm thử |
 | AI nhận diện sai món hoặc nguyên liệu | Nội dung gợi ý không chính xác | Hiển thị dạng gợi ý, confidence và yêu cầu người dùng xác nhận |
 | Rekognition moderation false positive/negative | Ảnh hợp lệ bị chặn hoặc ảnh xấu lọt qua | Dùng ngưỡng thận trọng; lưu `failed` kèm lý do để hỗ trợ kiểm tra thủ công |
 | Bedrock trả output sai schema | Backend không xử lý được | JSON schema validation, retry giới hạn và fallback |
@@ -315,14 +328,14 @@ Các biện pháp kiểm soát:
 
 ## 13. Kết quả kỳ vọng
 
-- Có một sản phẩm FoodieRecipe hoàn chỉnh cho phép quản lý tài khoản, công thức, nguyên liệu, danh mục và tìm kiếm.
-- Kiến trúc mục tiêu mô tả đầy đủ lớp ứng dụng, dữ liệu, lưu trữ ảnh, AI và phân phối nội dung.
+- Có một sản phẩm FoodieRecipe hoàn chỉnh cho phép quản lý tài khoản, công thức, nguyên liệu, danh mục, tìm kiếm, lượt thích và bình luận.
+- Kiến trúc đã triển khai mô tả đầy đủ lớp ứng dụng, dữ liệu, lưu trữ ảnh, AI và phân phối nội dung.
 - Có một pipeline xử lý ảnh hoàn chỉnh, tách rõ trách nhiệm giữa Next.js, NestJS và AWS.
 - Giảm thời gian nhập tên món, mô tả, nguyên liệu và tag khi đăng công thức.
 - Tự động sàng lọc một phần nội dung ảnh trước khi hiển thị.
 - Cải thiện tốc độ truy cập ảnh nhờ CloudFront cache.
 - Tạo nền tảng có thể mở rộng cho tìm kiếm theo hình ảnh, gợi ý món ăn và cá nhân hóa.
-- Phần đóng góp cá nhân có thể tích hợp vào sản phẩm chung mà không phụ thuộc vào việc cá nhân triển khai EC2.
+- Toàn bộ sản phẩm được triển khai end-to-end, có giám sát, tài liệu vận hành và quy trình xử lý sự cố.
 
 ## 14. Hướng phát triển
 

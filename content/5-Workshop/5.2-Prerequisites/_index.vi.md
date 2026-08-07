@@ -53,7 +53,7 @@ foodierecipe/
 └── .gitignore
 ```
 
-Tạo file `api/.env.example` theo cấu hình của dự án:
+Giữ `api/.env.example` chỉ gồm tên key để hướng dẫn chạy local; không điền giá trị thật:
 
 ```dotenv
 # Database
@@ -90,13 +90,24 @@ BEDROCK_MODEL_ID=
 ```
 
 {{% notice warning %}}
-Các giá trị trong `.env.example` chỉ là placeholder. Không commit `.env` thật. Khi chạy `api` trên EC2, không khai báo `AWS_ACCESS_KEY_ID` và `AWS_SECRET_ACCESS_KEY`; AWS SDK sẽ dùng `FoodieRecipeBackendRole`. Đặt `COOKIE_SECURE=true` khi API được phục vụ qua HTTPS.
+Các giá trị trong `.env.example` chỉ là placeholder. Không commit `.env` thật. Production không tạo `.env.production`: EC2 dùng IAM Role cho AWS credential, Secrets Manager cho giá trị nhạy cảm và Parameter Store cho cấu hình không nhạy cảm. Đặt `COOKIE_SECURE=true` khi API được phục vụ qua HTTPS.
 {{% /notice %}}
 
 - `DATABASE_URL` sử dụng PostgreSQL local ở cổng `5433`.
 - `CLOUDFRONT_*` để trống khi chạy local; `api` sẽ trả S3 pre-signed GET URL.
 - `CLOUDFRONT_PRIVATE_KEY_BASE64` là private key đã mã hóa Base64, không phải nội dung PEM thuần.
 - `RESEND_API_KEY` và `EMAIL_FROM` chỉ cần khi bật xác minh email.
+
+`web/.env.example`:
+
+```dotenv
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_APP_NAME=
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+NEXT_PUBLIC_CLOUDFRONT_DOMAIN=
+```
+
+Các biến `NEXT_PUBLIC_*` phải được cung cấp trước khi build Next.js vì giá trị được đóng gói vào client bundle.
 
 #### 5. Quyền cần thiết
 
@@ -112,7 +123,11 @@ Không dùng policy `AdministratorAccess` cho ứng dụng. Ở phần 5.3.1, b�
 | ---------- | ---------- |
 | Image bucket | `my-foodie-ai-images` hoặc tên duy nhất tương đương |
 | EC2 role | `FoodieRecipeBackendRole` |
-| Secret | `foodierecipe/database` |
-| Log group | `/foodierecipe/api` |
+| EC2 Security Group | `FoodieRecipeEc2Sg` |
+| RDS Security Group | `FoodieRecipeRdsSg` |
+| Database secret | `prod/foodie-recipe/db` |
+| Application secret | `prod/foodie-recipe/app` |
+| Log group | `foodie-recipe-log` |
+| Production domain | `myapps.io.vn` |
 
 Sau khi hoàn tất, chuyển sang [Xây dựng hạ tầng cốt lõi](../5.3-core-infrastructure/).

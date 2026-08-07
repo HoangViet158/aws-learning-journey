@@ -8,56 +8,65 @@ pre: " <b> 5.6. </b> "
 
 #### Tổng kết
 
-Bạn đã hoàn thành workflow FoodieRecipe từ upload ảnh bằng Next.js đến xử lý qua NestJS, S3, Rekognition, Bedrock và phân phối bằng CloudFront. Phần cuối dọn các tài nguyên workshop để tránh tiếp tục phát sinh chi phí.
+Sau Workshop, FoodieRecipe đã chạy Next.js và NestJS bằng Docker trên EC2/Nginx, dùng RDS PostgreSQL, S3 private bucket, Rekognition, Bedrock, CloudFront signed URL, Secrets Manager, IAM và CloudWatch. Nếu đây là môi trường thực hành, dọn tài nguyên để tránh tiếp tục phát sinh chi phí.
 
 {{% notice danger %}}
-Chỉ xóa tài nguyên được tạo riêng cho workshop. Không xóa bucket, database, role, secret hoặc log group đang được môi trường khác sử dụng. Sao lưu dữ liệu cần giữ trước khi tiếp tục.
+Các bước dưới đây xóa dữ liệu. Chỉ thực hiện sau khi đã xác nhận đúng AWS account, Region và tên tài nguyên; tạo snapshot/backup nếu cần giữ dữ liệu.
 {{% /notice %}}
 
-#### 1. Ngừng phát sinh request
+#### 1. Ngừng request mới
 
-1. Dừng ứng dụng `web` và script đang upload ảnh.
-2. Dừng container NestJS hoặc đặt API ở chế độ bảo trì.
-3. Xác nhận không còn image record ở trạng thái `processing`.
+1. Dừng demo và các job gọi Bedrock/Rekognition.
+2. Dừng container `foodierecipe-web` và `foodierecipe-api`.
+3. Gỡ hoặc thay bản ghi DNS của `myapps.io.vn` nếu môi trường không còn hoạt động.
 
-#### 2. Xóa CloudFront distribution
+#### 2. Xóa CloudFront
 
-1. Mở CloudFront và chọn distribution FoodieRecipe.
-2. Chọn **Disable** và đợi trạng thái cập nhật hoàn tất.
-3. Chọn **Delete**.
-4. Xóa Origin Access Control nếu không còn distribution nào dùng.
+1. Lấy cấu hình và ETag của distribution.
+2. Đặt `Enabled=false`, cập nhật và chờ trạng thái `Deployed`.
+3. Xóa distribution bằng ETag mới.
+4. Xóa trusted key group và public key sau khi không còn behavior tham chiếu.
+5. Xóa OAC sau khi distribution đã bị xóa.
 
-#### 3. Làm rỗng và xóa S3 image bucket
+```bash
+aws cloudfront get-distribution-config --id <distribution-id>
+aws cloudfront delete-distribution \
+  --id <distribution-id> \
+  --if-match <etag-after-disable>
+```
 
-1. Xóa object trong hai prefix `uploads/` và `delivery/`.
-2. Nếu bật versioning, xóa cả object versions và delete markers.
-3. Xóa lifecycle rule/CORS nếu cần.
-4. Xóa image bucket sau khi bucket trống.
+#### 3. Làm rỗng và xóa S3 bucket
 
-#### 4. Xóa tài nguyên Backend
+```bash
+aws s3 rm s3://my-foodie-ai-images --recursive
+aws s3api delete-bucket --bucket my-foodie-ai-images
+```
 
-Nếu đã tạo riêng cho workshop:
+Nếu bucket bật versioning, cần xóa toàn bộ version và delete marker trước khi xóa bucket.
 
-1. Dừng và terminate EC2 instance.
-2. Xóa Security Group không còn được tham chiếu.
+#### 4. Xóa Backend và database
+
+1. Dừng/terminate EC2.
+2. Release Elastic IP nếu không còn sử dụng.
 3. Xóa RDS; chỉ tạo final snapshot khi cần giữ dữ liệu.
-4. Xóa snapshot/backup thử nghiệm không cần thiết.
+4. Xóa DB subnet group và Security Group sau khi không còn dependency.
+5. Chỉ xóa VPC/subnet/route table nếu chúng được tạo riêng cho Workshop.
 
-#### 5. Xóa bí mật, role và log
+#### 5. Xóa secret, IAM và log
 
-1. Schedule deletion cho `foodierecipe/database` nếu secret chỉ dùng cho workshop.
-2. Detach policy và xóa `FoodieRecipeBackendRole` sau khi EC2 đã bị xóa.
-3. Xóa custom policy không còn được sử dụng.
-4. Xóa `/foodierecipe/api` và các alarm/dashboard riêng của workshop.
+1. Xóa `prod/foodie-recipe/db` và `prod/foodie-recipe/app` theo thời gian phục hồi phù hợp.
+2. Xóa Parameter Store path `/foodierecipe/prod/` nếu có.
+3. Detach policy rồi xóa IAM Role sau khi EC2 đã bị xóa.
+4. Xóa `foodie-recipe-log` và các alarm/SNS topic không còn dùng.
+5. Không xóa `RDSOSMetrics` khi tài nguyên khác vẫn cần log group này.
 
 #### 6. Xác nhận chi phí
 
-1. Mở **Cost Explorer** và lọc theo tag/tên FoodieRecipe.
-2. Kiểm tra S3, CloudFront, EC2, RDS, Rekognition, Bedrock, Secrets Manager và CloudWatch.
-3. Giữ Budget Alert trong vài ngày nếu cần theo dõi chi phí đến trễ.
+Mở **Billing and Cost Management** và kiểm tra EC2, RDS, S3, CloudFront, Secrets Manager, CloudWatch, Rekognition và Bedrock. Budget alert có thể tiếp tục gửi cảnh báo sau khi dọn dẹp vì dữ liệu chi phí cập nhật có độ trễ.
 
 #### Kết quả
 
-- Tài nguyên workshop đã được dọn theo đúng thứ tự phụ thuộc.
-- Không còn S3 object, CloudFront distribution, EC2/RDS hoặc secret thử nghiệm.
-- Tài nguyên dùng chung và dữ liệu cần giữ không bị ảnh hưởng.
+- Không còn EC2/RDS, Elastic IP, image object, CloudFront distribution hoặc secret thử nghiệm.
+- DNS không còn trỏ đến máy chủ đã xóa.
+- Không còn workload gọi Rekognition/Bedrock hoặc ghi CloudWatch Logs.
+- Snapshot và tài nguyên dùng chung được giữ lại có chủ đích.
