@@ -1,5 +1,5 @@
 ---
-title: "Internship Self-Assessment"
+title: "Self-evaluation"
 date: 2026-06-22
 weight: 6
 chapter: false
@@ -22,20 +22,20 @@ Throughout the internship, I made every effort to complete assigned tasks on sch
 
 To reflect objectively on my internship, I assess myself according to the following criteria:
 
-| No. | Criterion | Description | Good | Fair | Average |
-| --- | --- | --- | :---: | :---: | :---: |
-| 1 | **Professional knowledge and skills** | Applied AWS Cloud, Next.js, NestJS, PostgreSQL, and AI across FoodieRecipe | ☐ | ✅ | ☐ |
-| 2 | **Learning ability** | Proactively studied S3, Rekognition, Bedrock, CloudFront, and AWS documentation | ✅ | ☐ | ☐ |
-| 3 | **Proactiveness** | Took ownership of tasks, analyzed workflows, and researched solutions before consulting the mentor | ✅ | ☐ | ☐ |
-| 4 | **Responsibility** | Completed assigned implementation and documentation work on schedule and consistently | ✅ | ☐ | ☐ |
-| 5 | **Discipline** | Participated fully in learning sessions and team meetings and followed Bootcamp requirements | ☐ | ✅ | ☐ |
-| 6 | **Growth mindset** | Accepted feedback and refined the architecture, workflow, and documentation | ✅ | ☐ | ☐ |
-| 7 | **Communication** | Discussed requirements, progress, and technical issues with the mentor and team members | ☐ | ✅ | ☐ |
-| 8 | **Teamwork** | Coordinated Frontend, Backend, and AWS components to maintain a consistent workflow | ✅ | ☐ | ☐ |
-| 9 | **Attitude and professionalism** | Respected the mentor, supported team members, and approached the project seriously | ✅ | ☐ | ☐ |
-| 10 | **Problem solving** | Analyzed upload, access-control, and AI-result issues and proposed suitable solutions | ☐ | ✅ | ☐ |
-| 11 | **Project contribution** | Completed the application, deployment infrastructure, AI image workflow, Proposal, Workshop, and project documentation | ☐ | ✅ | ☐ |
-| 12 | **Overall assessment** | Achieved the objectives and assigned scope during the FCAJ internship | ☐ | ✅ | ☐ |
+| No. | Criterion                             | Description                                                                                                            | Good | Fair | Average |
+| --- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | :--: | :--: | :-----: |
+| 1   | **Professional knowledge and skills** | Applied AWS Cloud, Next.js, NestJS, PostgreSQL, and AI across FoodieRecipe                                             |  ☐   |  ✅  |    ☐    |
+| 2   | **Learning ability**                  | Proactively studied S3, Rekognition, Bedrock, CloudFront, and AWS documentation                                        |  ✅  |  ☐   |    ☐    |
+| 3   | **Proactiveness**                     | Took ownership of tasks, analyzed workflows, and researched solutions before consulting the mentor                     |  ✅  |  ☐   |    ☐    |
+| 4   | **Responsibility**                    | Completed assigned implementation and documentation work on schedule and consistently                                  |  ✅  |  ☐   |    ☐    |
+| 5   | **Discipline**                        | Participated fully in learning sessions and team meetings and followed Bootcamp requirements                           |  ☐   |  ✅  |    ☐    |
+| 6   | **Growth mindset**                    | Accepted feedback and refined the architecture, workflow, and documentation                                            |  ✅  |  ☐   |    ☐    |
+| 7   | **Communication**                     | Discussed requirements, progress, and technical issues with the mentor and team members                                |  ☐   |  ✅  |    ☐    |
+| 8   | **Teamwork**                          | Coordinated Frontend, Backend, and AWS components to maintain a consistent workflow                                    |  ✅  |  ☐   |    ☐    |
+| 9   | **Attitude and professionalism**      | Respected the mentor, supported team members, and approached the project seriously                                     |  ✅  |  ☐   |    ☐    |
+| 10  | **Problem solving**                   | Analyzed upload, access-control, and AI-result issues and proposed suitable solutions                                  |  ☐   |  ✅  |    ☐    |
+| 11  | **Project contribution**              | Completed the application, deployment infrastructure, AI image workflow, Proposal, Workshop, and project documentation |  ☐   |  ✅  |    ☐    |
+| 12  | **Overall assessment**                | Achieved the objectives and assigned scope during the FCAJ internship                                                  |  ☐   |  ✅  |    ☐    |
 
 ## Areas for improvement
 

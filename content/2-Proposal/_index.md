@@ -1,5 +1,5 @@
 ---
-title: "FoodieRecipe Project Proposal"
+title: "Proposal"
 date: 2026-06-22
 weight: 2
 chapter: false
@@ -96,12 +96,12 @@ Build FoodieRecipe as a complete recipe-sharing product while developing and eva
 
 ## 5. Users and Core Features
 
-| User | Need | Related features |
-| ---- | ---- | ---------------- |
-| Member | Discover and interact with recipes | Browse, search, like, comment, and load images through CloudFront |
-| Contributor | Publish recipes with less manual input | Upload images, receive AI suggestions, edit, confirm, and monitor interactions |
-| Administrator | Control image quality and safety | Review flagged images, Rekognition results, and processing states |
-| Development team | Trace and resolve pipeline failures | Inspect image IDs, states, timing, and normalized errors |
+| User             | Need                                   | Related features                                                               |
+| ---------------- | -------------------------------------- | ------------------------------------------------------------------------------ |
+| Member           | Discover and interact with recipes     | Browse, search, like, comment, and load images through CloudFront              |
+| Contributor      | Publish recipes with less manual input | Upload images, receive AI suggestions, edit, confirm, and monitor interactions |
+| Administrator    | Control image quality and safety       | Review flagged images, Rekognition results, and processing states              |
+| Development team | Trace and resolve pipeline failures    | Inspect image IDs, states, timing, and normalized errors                       |
 
 ## 6. Solution Architecture
 
@@ -120,17 +120,17 @@ Build FoodieRecipe as a complete recipe-sharing product while developing and eva
 
 ### 6.2. Numbered flows in the diagram
 
-| Step | Flow |
-| :--: | ---- |
-| 1 | The user accesses the Next.js website and FoodieRecipe content through CloudFront. |
-| 2 | CloudFront retrieves ready images from the S3 image bucket's `delivery/` prefix and caches them at edge locations. |
-| 3 | The Next.js application calls the NestJS API on EC2 through Nginx. |
-| 4 | Next.js uploads an image directly to the image S3 bucket with a Backend-issued pre-signed URL. |
-| 5 | NestJS verifies the image under `uploads/`, reads metadata, and manages its lifecycle. After successful processing, the image is moved to `delivery/` for CloudFront delivery. |
-| 6 | NestJS reads and writes business data and image states in Amazon RDS. |
-| 7 | NestJS invokes Amazon Bedrock to analyze the image and suggest recipe content. |
-| 8 | NestJS invokes Amazon Rekognition for label detection and image moderation. |
-| 9 | The EC2 application retrieves database credentials and sensitive configuration from Secrets Manager. |
+| Step | Flow                                                                                                                                                                           |
+| :--: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  1   | The user accesses the Next.js website and FoodieRecipe content through CloudFront.                                                                                             |
+|  2   | CloudFront retrieves ready images from the S3 image bucket's `delivery/` prefix and caches them at edge locations.                                                             |
+|  3   | The Next.js application calls the NestJS API on EC2 through Nginx.                                                                                                             |
+|  4   | Next.js uploads an image directly to the image S3 bucket with a Backend-issued pre-signed URL.                                                                                 |
+|  5   | NestJS verifies the image under `uploads/`, reads metadata, and manages its lifecycle. After successful processing, the image is moved to `delivery/` for CloudFront delivery. |
+|  6   | NestJS reads and writes business data and image states in Amazon RDS.                                                                                                          |
+|  7   | NestJS invokes Amazon Bedrock to analyze the image and suggest recipe content.                                                                                                 |
+|  8   | NestJS invokes Amazon Rekognition for label detection and image moderation.                                                                                                    |
+|  9   | The EC2 application retrieves database credentials and sensitive configuration from Secrets Manager.                                                                           |
 
 IAM and CloudWatch are cross-cutting components: IAM determines which services EC2 may call, while CloudWatch receives logs and metrics from EC2, Docker, Nginx, and NestJS.
 
@@ -148,12 +148,12 @@ IAM and CloudWatch are cross-cutting components: IAM determines which services E
 
 ### 6.4. Image states
 
-| State | Meaning |
-| ----- | ------- |
-| `pending` | Record created; image is waiting for or currently uploading |
-| `processing` | Upload completed; Rekognition or Bedrock is processing the image |
-| `completed` | Processing completed; the image may be displayed through CloudFront |
-| `failed` | Upload, AI processing, or moderation failed; details are stored in an error code |
+| State        | Meaning                                                                          |
+| ------------ | -------------------------------------------------------------------------------- |
+| `pending`    | Record created; image is waiting for or currently uploading                      |
+| `processing` | Upload completed; Rekognition or Bedrock is processing the image                 |
+| `completed`  | Processing completed; the image may be displayed through CloudFront              |
+| `failed`     | Upload, AI processing, or moderation failed; details are stored in an error code |
 
 ## 7. Component Design
 
@@ -253,16 +253,16 @@ Planned duration: **eight weeks, from June 22, 2026 to August 14, 2026**.
 
 The following table covers the complete eight-week FoodieRecipe implementation, from application development to AWS deployment and operation.
 
-| Week | Work | Milestone |
-| :--: | ---- | --------- |
-| 1 | Study AWS, IAM, Budget Alerts, and image-pipeline design | Initial requirements, scope, and diagram |
-| 2 | Design S3, RDS, Secrets Manager, and the data model | Defined data, storage, and access infrastructure |
-| 3 | Build NestJS APIs, authentication, recipes, likes, comments, and pre-signed URLs | Working Backend and data lifecycle |
-| 4 | Build Next.js and integrate it with NestJS | Working account, recipe, interaction, search, and upload interfaces |
-| 5 | Integrate Rekognition | Working label detection and moderation |
-| 6 | Integrate Bedrock | Structured, validated recipe suggestions |
-| 7 | Create EC2/RDS, deploy NestJS with Docker/Nginx, and configure CloudFront | API and images served from AWS infrastructure |
-| 8 | Deploy the Frontend, configure CloudWatch, test, and document | Observable end-to-end product |
+| Week | Work                                                                             | Milestone                                                           |
+| :--: | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+|  1   | Study AWS, IAM, Budget Alerts, and image-pipeline design                         | Initial requirements, scope, and diagram                            |
+|  2   | Design S3, RDS, Secrets Manager, and the data model                              | Defined data, storage, and access infrastructure                    |
+|  3   | Build NestJS APIs, authentication, recipes, likes, comments, and pre-signed URLs | Working Backend and data lifecycle                                  |
+|  4   | Build Next.js and integrate it with NestJS                                       | Working account, recipe, interaction, search, and upload interfaces |
+|  5   | Integrate Rekognition                                                            | Working label detection and moderation                              |
+|  6   | Integrate Bedrock                                                                | Structured, validated recipe suggestions                            |
+|  7   | Create EC2/RDS, deploy NestJS with Docker/Nginx, and configure CloudFront        | API and images served from AWS infrastructure                       |
+|  8   | Deploy the Frontend, configure CloudWatch, test, and document                    | Observable end-to-end product                                       |
 
 ## 10. Acceptance Criteria
 
@@ -315,16 +315,16 @@ Cost controls include:
 
 ## 12. Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-| ---- | ------ | ---------- |
-| EC2, Nginx, or RDS becomes unavailable | The overall application is interrupted | Tested health checks, backups, CloudWatch, and restart or recovery procedures |
-| AI identifies the wrong dish or ingredients | Incorrect suggestions | Label results as suggestions, expose confidence, and require user confirmation |
+| Risk                                           | Impact                                         | Mitigation                                                                     |
+| ---------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| EC2, Nginx, or RDS becomes unavailable         | The overall application is interrupted         | Tested health checks, backups, CloudWatch, and restart or recovery procedures  |
+| AI identifies the wrong dish or ingredients    | Incorrect suggestions                          | Label results as suggestions, expose confidence, and require user confirmation |
 | Rekognition moderation false positive/negative | Valid images blocked or unsafe images accepted | Use conservative thresholds and store `failed` with a reason for manual review |
-| Bedrock returns malformed output | Backend cannot process the result | JSON schema validation, limited retry, and fallback |
-| Upload is interrupted | Records and objects become inconsistent | Explicit states, confirmation API, and cleanup task |
-| CloudFront serves an old image | Stale content appears | Versioned keys, suitable TTL, and targeted invalidation |
-| AWS credentials or sensitive URLs leak | Data-security risk | Environment variables, least privilege, short-lived URLs, and log redaction |
-| AI usage exceeds the budget | Unexpected cost | Budget Alerts, quotas, caching, retry limits, and usage tracking |
+| Bedrock returns malformed output               | Backend cannot process the result              | JSON schema validation, limited retry, and fallback                            |
+| Upload is interrupted                          | Records and objects become inconsistent        | Explicit states, confirmation API, and cleanup task                            |
+| CloudFront serves an old image                 | Stale content appears                          | Versioned keys, suitable TTL, and targeted invalidation                        |
+| AWS credentials or sensitive URLs leak         | Data-security risk                             | Environment variables, least privilege, short-lived URLs, and log redaction    |
+| AI usage exceeds the budget                    | Unexpected cost                                | Budget Alerts, quotas, caching, retry limits, and usage tracking               |
 
 ## 13. Expected Outcomes
 
