@@ -133,3 +133,11 @@ Response cho Frontend gồm:
 ## 7. Kế hoạch tuần tiếp theo
 
 Cấu hình CloudFront trước S3 để tăng tốc và kiểm soát truy cập ảnh FoodieRecipe.
+
+## 8. Tài liệu tham khảo
+
+- [Thực hiện hội thoại với Amazon Bedrock Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-call.html)
+- [Amazon Bedrock Runtime Converse API Reference](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html)
+- [Tham số suy luận của foundation model](https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters.html)
+- [Thiết lập quyền truy cập Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html)
+- [Giám sát Amazon Bedrock bằng Amazon CloudWatch](https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring.html)

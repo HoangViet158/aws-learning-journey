@@ -101,3 +101,11 @@ Hoàn thiện migration PostgreSQL cho dữ liệu nghiệp vụ, lượt thích
 ## 7. Kế hoạch tuần tiếp theo
 
 Xây dựng đầy đủ giao diện tài khoản, công thức, lượt thích, bình luận, tìm kiếm và upload ảnh bằng Next.js; tích hợp với các API NestJS.
+
+## 8. Tài liệu tham khảo
+
+- [Kỹ thuật upload file trong NestJS](https://docs.nestjs.com/techniques/file-upload)
+- [Configuration module trong NestJS](https://docs.nestjs.com/techniques/configuration)
+- [Authentication trong NestJS](https://docs.nestjs.com/security/authentication)
+- [Tạo tài liệu OpenAPI/Swagger với NestJS](https://docs.nestjs.com/openapi/introduction)
+- [Ví dụ Amazon S3 bằng AWS SDK for JavaScript v3](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_s3_code_examples.html)

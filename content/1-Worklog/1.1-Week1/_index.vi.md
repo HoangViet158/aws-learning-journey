@@ -80,3 +80,11 @@ Xác định chức năng tài khoản, công thức, nguyên liệu, danh mục
 ## 7. Kế hoạch tuần tiếp theo
 
 Thiết kế Amazon S3, Amazon RDS, mô hình dữ liệu, IAM và Secrets Manager cho FoodieRecipe.
+
+## 8. Tài liệu tham khảo
+
+- [Các phương pháp bảo mật tốt nhất trong AWS IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+- [Xác thực đa yếu tố trong AWS IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html)
+- [Quản lý chi phí bằng AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html)
+- [Các phương pháp tốt nhất khi sử dụng AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html)
+- [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html)

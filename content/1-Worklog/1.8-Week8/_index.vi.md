@@ -193,3 +193,12 @@ Kiểm tra log sau khi đăng nhập, tạo công thức AI và gọi API lỗi;
 - Bedrock tạo nội dung công thức từ các nhãn nguyên liệu đã được chuẩn hóa.
 - CloudWatch thu thập log ứng dụng và RDS để hỗ trợ giám sát, kiểm tra lỗi.
 - Quy trình DNS, HTTPS, deploy, restart, rollback và bàn giao đã được hoàn thiện.
+
+## 7. Tài liệu tham khảo
+
+- [Hướng dẫn self-hosting Next.js](https://nextjs.org/docs/app/guides/self-hosting)
+- [Tạo và quản lý bản ghi Amazon Route 53](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resource-record-sets-creating.html)
+- [Hướng dẫn sử dụng Certbot](https://eff-certbot.readthedocs.io/en/stable/using.html)
+- [Thu thập metrics, logs và traces bằng CloudWatch Agent](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html)
+- [Cấu hình restart policy cho Docker container](https://docs.docker.com/engine/containers/start-containers-automatically/)
+- [Các phương pháp vận hành tốt nhất trong AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/operational-excellence.html)

@@ -106,3 +106,11 @@ During local development, the AWS SDK uses the configured credential chain. On E
 ## 7. Next-week plan
 
 Use Amazon Bedrock to process Rekognition labels/ingredients and generate recipe content.
+
+## 8. References
+
+- [Amazon Rekognition DetectLabels API](https://docs.aws.amazon.com/rekognition/latest/APIReference/API_DetectLabels.html)
+- [Detecting labels in an image with Amazon Rekognition](https://docs.aws.amazon.com/rekognition/latest/dg/labels-detect-labels-image.html)
+- [Analyzing images stored in Amazon S3](https://docs.aws.amazon.com/rekognition/latest/dg/images-s3.html)
+- [IAM security guidance for Amazon Rekognition](https://docs.aws.amazon.com/rekognition/latest/dg/security-iam.html)
+- [Amazon Rekognition service quotas](https://docs.aws.amazon.com/rekognition/latest/dg/limits.html)

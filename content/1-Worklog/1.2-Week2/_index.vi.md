@@ -115,3 +115,11 @@ Gắn metadata cần thiết như loại nội dung, chủ sở hữu và mã c�
 ## 7. Kế hoạch tuần tiếp theo
 
 Xây dựng Backend NestJS để upload, xác thực và quản lý ảnh trên Amazon S3.
+
+## 8. Tài liệu tham khảo
+
+- [Chặn truy cập công khai với Amazon S3 Block Public Access](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html)
+- [Chia sẻ object bằng Amazon S3 pre-signed URL](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)
+- [Cấu hình CORS cho Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/enabling-cors-examples.html)
+- [Amazon RDS trong Amazon VPC](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.html)
+- [Quản lý database credential bằng AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html)

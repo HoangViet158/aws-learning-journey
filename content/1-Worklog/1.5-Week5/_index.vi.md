@@ -106,3 +106,11 @@ Khi phát triển local, AWS SDK sử dụng credential chain đã cấu hình. 
 ## 7. Kế hoạch tuần tiếp theo
 
 Dùng Amazon Bedrock phân tích danh sách label/nguyên liệu từ Rekognition để tạo nội dung công thức.
+
+## 8. Tài liệu tham khảo
+
+- [Amazon Rekognition DetectLabels API](https://docs.aws.amazon.com/rekognition/latest/APIReference/API_DetectLabels.html)
+- [Nhận diện nhãn trong ảnh bằng Amazon Rekognition](https://docs.aws.amazon.com/rekognition/latest/dg/labels-detect-labels-image.html)
+- [Phân tích ảnh lưu trong Amazon S3](https://docs.aws.amazon.com/rekognition/latest/dg/images-s3.html)
+- [Hướng dẫn bảo mật Amazon Rekognition bằng IAM](https://docs.aws.amazon.com/rekognition/latest/dg/security-iam.html)
+- [Hạn mức dịch vụ Amazon Rekognition](https://docs.aws.amazon.com/rekognition/latest/dg/limits.html)

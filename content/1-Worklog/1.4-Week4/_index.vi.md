@@ -103,3 +103,11 @@ Giao diện biểu diễn bốn trạng thái `pending`, `processing`, `complete
 ## 7. Kế hoạch tuần tiếp theo
 
 Tích hợp Amazon Rekognition để nhận diện và kiểm duyệt ảnh món ăn.
+
+## 8. Tài liệu tham khảo
+
+- [Tổng quan Next.js App Router](https://nextjs.org/docs/app)
+- [Lấy dữ liệu trong Next.js](https://nextjs.org/docs/app/getting-started/fetching-data)
+- [Biến môi trường trong Next.js](https://nextjs.org/docs/app/guides/environment-variables)
+- [Tối ưu hình ảnh với Next.js Image](https://nextjs.org/docs/app/getting-started/images)
+- [React Hook Form – hướng dẫn bắt đầu](https://react-hook-form.com/get-started)

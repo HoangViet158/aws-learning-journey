@@ -292,3 +292,11 @@ Object keys contain a timestamp or hash, allowing a long TTL without serving sta
 ## 7. Next-week plan
 
 Deploy the Next.js Frontend, configure CloudWatch, integrate the full pipeline, test it, and complete documentation.
+
+## 8. References
+
+- [Using an IAM role for applications running on Amazon EC2](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html)
+- [Docker multi-stage builds](https://docs.docker.com/build/building/multi-stage/)
+- [Configuring Nginx as a reverse proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
+- [Restricting access to an S3 origin with CloudFront OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
+- [Serving private content with CloudFront signed URLs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-signed-urls.html)

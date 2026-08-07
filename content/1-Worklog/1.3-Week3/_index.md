@@ -101,3 +101,11 @@ Completed PostgreSQL migrations for business data, likes, and comments, along wi
 ## 7. Next-week plan
 
 Build the complete Next.js account, recipe, like, comment, search, and image-upload interfaces and integrate them with NestJS APIs.
+
+## 8. References
+
+- [File upload techniques in NestJS](https://docs.nestjs.com/techniques/file-upload)
+- [Configuration in NestJS](https://docs.nestjs.com/techniques/configuration)
+- [Authentication in NestJS](https://docs.nestjs.com/security/authentication)
+- [Generating OpenAPI/Swagger documentation with NestJS](https://docs.nestjs.com/openapi/introduction)
+- [Amazon S3 examples using AWS SDK for JavaScript v3](https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_s3_code_examples.html)

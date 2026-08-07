@@ -80,3 +80,11 @@ Defined account, recipe, ingredient, category, search, like, comment, and AI ima
 ## 7. Next-week plan
 
 Design Amazon S3, Amazon RDS, the data model, IAM, and Secrets Manager for FoodieRecipe.
+
+## 8. References
+
+- [Security best practices in AWS IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html)
+- [Multi-factor authentication in AWS IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa.html)
+- [Managing costs with AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html)
+- [Best practices for AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-best-practices.html)
+- [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html)

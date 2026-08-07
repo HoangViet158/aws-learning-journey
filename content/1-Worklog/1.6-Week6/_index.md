@@ -133,3 +133,11 @@ The Frontend response includes:
 ## 7. Next-week plan
 
 Place CloudFront in front of S3 to accelerate and control FoodieRecipe image access.
+
+## 8. References
+
+- [Using the Amazon Bedrock Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-call.html)
+- [Amazon Bedrock Runtime Converse API Reference](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html)
+- [Foundation model inference parameters](https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters.html)
+- [IAM access control for Amazon Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html)
+- [Monitoring Amazon Bedrock with Amazon CloudWatch](https://docs.aws.amazon.com/bedrock/latest/userguide/monitoring.html)

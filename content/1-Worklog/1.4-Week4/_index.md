@@ -103,3 +103,11 @@ The interface represents four states: `pending`, `processing`, `completed`, and 
 ## 7. Next-week plan
 
 Integrate Amazon Rekognition for food-image detection and moderation.
+
+## 8. References
+
+- [Next.js App Router overview](https://nextjs.org/docs/app)
+- [Fetching data in Next.js](https://nextjs.org/docs/app/getting-started/fetching-data)
+- [Environment variables in Next.js](https://nextjs.org/docs/app/guides/environment-variables)
+- [Image optimization with Next.js Image](https://nextjs.org/docs/app/getting-started/images)
+- [React Hook Form – Get Started](https://react-hook-form.com/get-started)

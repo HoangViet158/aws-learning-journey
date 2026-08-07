@@ -292,3 +292,11 @@ Object key chứa timestamp hoặc hash nên có thể dùng TTL dài mà không
 ## 7. Kế hoạch tuần tiếp theo
 
 Deploy Frontend Next.js, cấu hình CloudWatch, tích hợp toàn bộ pipeline, kiểm thử và hoàn thiện tài liệu.
+
+## 8. Tài liệu tham khảo
+
+- [Sử dụng IAM Role cho ứng dụng chạy trên Amazon EC2](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html)
+- [Docker multi-stage build](https://docs.docker.com/build/building/multi-stage/)
+- [Cấu hình Nginx làm reverse proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
+- [Giới hạn truy cập S3 origin bằng CloudFront OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
+- [Phân phối nội dung riêng tư bằng CloudFront signed URL](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-signed-urls.html)

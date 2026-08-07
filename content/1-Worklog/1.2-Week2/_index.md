@@ -115,3 +115,11 @@ Added metadata such as content type, owner, and recipe identifier and standardiz
 ## 7. Next-week plan
 
 Build the NestJS Backend for uploading, validating, and managing images in Amazon S3.
+
+## 8. References
+
+- [Blocking public access with Amazon S3 Block Public Access](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html)
+- [Sharing objects with Amazon S3 presigned URLs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)
+- [Configuring CORS for Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/enabling-cors-examples.html)
+- [Amazon RDS in an Amazon VPC](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.html)
+- [Managing database credentials with AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html)

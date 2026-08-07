@@ -193,3 +193,12 @@ Logs are inspected after sign-in, AI recipe generation, and failed API calls. Th
 - Bedrock generates recipe content from normalized ingredient labels.
 - CloudWatch collects application and RDS logs for monitoring and troubleshooting.
 - DNS, HTTPS, deployment, restart, rollback, and handover procedures are complete.
+
+## 7. References
+
+- [Self-hosting Next.js](https://nextjs.org/docs/app/guides/self-hosting)
+- [Creating and managing Amazon Route 53 records](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resource-record-sets-creating.html)
+- [Using Certbot](https://eff-certbot.readthedocs.io/en/stable/using.html)
+- [Collecting metrics, logs, and traces with the CloudWatch Agent](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html)
+- [Configuring restart policies for Docker containers](https://docs.docker.com/engine/containers/start-containers-automatically/)
+- [Operational excellence in the AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/operational-excellence.html)
